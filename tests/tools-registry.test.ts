@@ -6,6 +6,7 @@ describe('tool registry', () => {
     expect(getTools().map((tool) => tool.name)).toEqual([
       'list_tables',
       'describe_table',
+      'describe_tables',
       'get_relationships',
       'execute_query',
       'explain_query',

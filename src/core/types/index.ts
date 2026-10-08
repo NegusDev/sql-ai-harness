@@ -89,6 +89,12 @@ export interface SqlSafetyPolicy {
 export interface ToolContext {
   database: DatabaseAdapter;
   safety: SqlSafetyPolicy;
+  schemaCache?: import('../../schema/cache.js').SchemaCache;
+}
+
+export interface DatabaseContext {
+  content?: string;
+  source?: string;
 }
 
 export interface SqlToolResult {

@@ -18,7 +18,9 @@ export async function describeTable(
   }
 
   try {
-    const schema = await context.database.describeTable(table);
+    const schema = context.schemaCache
+      ? await context.schemaCache.describeTable(context.database, table)
+      : await context.database.describeTable(table);
 
     return {
       success: true,

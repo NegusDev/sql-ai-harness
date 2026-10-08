@@ -2,7 +2,9 @@ import type { SqlToolResult, ToolContext } from '../types/index.js';
 
 export async function listTables(context: ToolContext): Promise<SqlToolResult> {
   try {
-    const tables = await context.database.listTables();
+    const tables = context.schemaCache
+      ? await context.schemaCache.listTables(context.database)
+      : await context.database.listTables();
 
     return {
       success: true,
