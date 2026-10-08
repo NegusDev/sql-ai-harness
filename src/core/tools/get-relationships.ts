@@ -11,7 +11,11 @@ export async function getRelationships(
   const table = input.table?.trim() || undefined;
 
   try {
-    const relationships = await context.database.getRelationships(table);
+    const relationships = table
+      ? await context.database.getRelationships(table)
+      : context.schemaCache
+        ? await context.schemaCache.getRelationships(context.database)
+        : await context.database.getRelationships();
 
     return {
       success: true,

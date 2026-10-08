@@ -5,7 +5,11 @@ import type { SqlSafetyPolicy } from '../core/types/index.js';
 const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY is required'),
   AI_MODEL: z.string().min(1, 'AI_MODEL is required'),
-  AI_SITE_URL: z.url().optional(),
+  AI_SITE_URL: z
+    .string()
+      .url()
+      .optional()
+      .or(z.literal('')),
   AI_SITE_NAME: z.string().default('SQL AI Harness'),
 
   DB_DRIVER: z.enum(['mysql', 'postgres', 'sqlite']).default('mysql'),
@@ -19,6 +23,7 @@ const envSchema = z.object({
   SQL_QUERY_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   SQL_MAX_RESULT_BYTES: z.coerce.number().int().positive().default(1_048_576),
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(20).default(8),
+  SCHEMA_CACHE_TTL_MS: z.coerce.number().int().positive().default(300_000),
 });
 
 export interface AppConfig {
@@ -40,6 +45,9 @@ export interface AppConfig {
   safety: SqlSafetyPolicy;
   agent: {
     maxSteps: number;
+  };
+  schema: {
+    cacheTtlMs: number;
   };
 }
 
@@ -64,6 +72,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     agent: {
       maxSteps: parsed.AGENT_MAX_STEPS,
+    },
+    schema: {
+      cacheTtlMs: parsed.SCHEMA_CACHE_TTL_MS,
     },
     safety: {
       readOnly: true,

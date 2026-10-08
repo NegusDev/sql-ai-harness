@@ -1,5 +1,6 @@
 export { listTables } from './list-tables.js';
 export { describeTable } from './describe-table.js';
+export { describeTables } from './describe-tables.js';
 export { getRelationships } from './get-relationships.js';
 export { executeQuery } from './execute-query.js';
 export { explainQuery } from './explain-query.js';

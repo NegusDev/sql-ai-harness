@@ -1,5 +1,6 @@
 import type { SqlToolResult, ToolContext } from '../types/index.js';
 import { describeTable, type DescribeTableInput } from './describe-table.js';
+import { describeTables, type DescribeTablesInput } from './describe-tables.js';
 import { executeQuery, type ExecuteQueryInput } from './execute-query.js';
 import { explainQuery, type ExplainQueryInput } from './explain-query.js';
 import { getRelationships, type GetRelationshipsInput } from './get-relationships.js';
@@ -8,6 +9,7 @@ import { listTables } from './list-tables.js';
 export type ToolName =
   | 'list_tables'
   | 'describe_table'
+  | 'describe_tables'
   | 'get_relationships'
   | 'execute_query'
   | 'explain_query';
@@ -28,6 +30,11 @@ const tools: Record<ToolName, RegisteredTool> = {
     name: 'describe_table',
     description: 'Inspect the columns and basic schema information for a database table.',
     execute: (input, context) => describeTable(input as DescribeTableInput, context),
+  },
+  describe_tables: {
+    name: 'describe_tables',
+    description: 'Inspect columns and basic schema information for multiple database tables at once. Use this when several tables are relevant.',
+    execute: (input, context) => describeTables(input as DescribeTablesInput, context),
   },
   get_relationships: {
     name: 'get_relationships',
