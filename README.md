@@ -79,6 +79,12 @@ With it, the agent has additional user-defined business/domain knowledge.
 A template is included as `sql-ai.md.example`.
 
 
+## Query correctness safeguards
+
+The agent now requires a successful global foreign-key discovery call before it can execute SQL. This ensures the model has access to the database relationship map during query planning. The system instructions also require it to plan relevant tables, use explicit FK-backed joins when related entities are needed, select meaningful descriptive columns for entity-list requests, and compare query results with the original question before answering.
+
+SQL execution is capped at three attempts per question so the agent can correct an invalid or inadequate query without retrying indefinitely. These controls improve the agent's behavior, but the FK map is not yet a full SQL AST-level proof that every generated JOIN follows a declared foreign key; databases with undeclared relationships or complex SQL still need live testing.
+
 ## Response modes
 
 The CLI supports three response modes:
