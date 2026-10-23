@@ -1,0 +1,607 @@
+[
+  {
+    "id": "E01",
+    "category": "filter",
+    "question": "List all active users by name.",
+    "reference_sql": "SELECT name FROM users WHERE is_active = 1 ORDER BY name;",
+    "expected_result": [
+      { "name": "admin" },
+      { "name": "demo" },
+      { "name": "test" }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["name"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["admin", "demo", "test"]
+  },
+  {
+    "id": "E02",
+    "category": "lookup",
+    "question": "Get the name, symbol, and ID of the currency with the code 'USD'.",
+    "reference_sql": "SELECT id, name, symbol FROM currencies WHERE code = 'USD';",
+    "expected_result": [{ "id": 3, "name": "US Dollar", "symbol": "$" }],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_regex": ["US\\s*Dollar", "\\$", "ID[:\\s*]*3\\b"]
+  },
+  {
+    "id": "E03",
+    "category": "filter",
+    "question": "Retrieve all active expense categories.",
+    "reference_sql": "SELECT id, name FROM expense_categories WHERE is_active = 1;",
+    "expected_result": [
+      { "id": 1, "name": "Rent" },
+      { "id": 2, "name": "Salary" }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["id", "name"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["Rent", "Salary"]
+  },
+  {
+    "id": "E04",
+    "category": "filter",
+    "question": "Retrieve the client name, credit limit, and credit balance for the client with phone '+256767606429'.",
+    "reference_sql": "SELECT name, credit_limit, credit_balance FROM clients WHERE phone = '+256767606429';",
+    "expected_result": [
+      {
+        "name": "Negus",
+        "credit_limit": "0.0000",
+        "credit_balance": "100.0000"
+      }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["name", "credit_limit", "credit_balance"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["Negus", "100"]
+  },
+  {
+    "id": "E05",
+    "category": "aggregation",
+    "question": "Count how many non-deleted clients exist in the system.",
+    "reference_sql": "SELECT COUNT(*) AS client_count FROM clients WHERE deleted_at IS NULL;",
+    "expected_result": [{ "client_count": 10 }],
+    "comparison_mode": "projected",
+    "expected_columns": ["client_count"],
+    "checks": ["correctness"],
+    "expected_answer_regex": ["\\b10\\b"]
+  },
+  {
+    "id": "E06",
+    "category": "lookup",
+    "question": "Get the company name and contact name for all agent lines.",
+    "reference_sql": "SELECT company_name, contact_name FROM agent_lines;",
+    "expected_result": [
+      { "company_name": "MTN Uganda", "contact_name": "HALVEK TECHNOLOGIES" }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["company_name", "contact_name"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["MTN Uganda", "HALVEK"]
+  },
+  {
+    "id": "E07",
+    "category": "join",
+    "question": "List all active currency pairs (non-deleted) along with base and quote currency codes.",
+    "reference_sql": "SELECT cp.id, b.code AS base_code, q.code AS quote_code FROM currency_pairs cp JOIN currencies b ON cp.base_currency = b.id JOIN currencies q ON cp.quote_currency = q.id WHERE cp.deleted_at IS NULL;",
+    "expected_result": [
+      { "id": 1, "base_code": "SSP", "quote_code": "UGX" },
+      { "id": 7, "base_code": "UGX", "quote_code": "USD" },
+      { "id": 8, "base_code": "SSP", "quote_code": "USD" }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["SSP", "UGX", "USD"]
+  },
+  {
+    "id": "E08",
+    "category": "join",
+    "question": "List all expenses showing reference number, amount, currency code, category name, and recording user name.",
+    "reference_sql": "SELECT e.ref_no AS reference_number, e.amount, c.code AS currency_code, ec.name AS category_name, u.name AS recording_user_name FROM expenses e JOIN currencies c ON e.currency_id = c.id JOIN expense_categories ec ON e.expense_category_id = ec.id JOIN users u ON e.recorded_by = u.id;",
+    "expected_result": [
+      {
+        "reference_number": "EXP-20260619-Q9AR",
+        "amount": "150000.0000",
+        "currency_code": "UGX",
+        "category_name": "Salary",
+        "recording_user_name": "demo"
+      },
+      {
+        "reference_number": "EXP-20260619-EDQR",
+        "amount": "200000.0000",
+        "currency_code": "UGX",
+        "category_name": "Rent",
+        "recording_user_name": "demo"
+      }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": [
+      "reference_number",
+      "amount",
+      "currency_code",
+      "category_name",
+      "recording_user_name"
+    ],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": [
+      "EXP-20260619-EDQR",
+      "EXP-20260619-Q9AR",
+      "Rent",
+      "Salary"
+    ]
+  },
+  {
+    "id": "E09",
+    "category": "join",
+    "question": "Show client names, wallet currency codes, and balances for all client wallets that currently have a positive balance.",
+    "reference_sql": "SELECT c.name AS client_name, cur.code AS currency_code, w.balance FROM client_wallets w JOIN clients c ON w.client_id = c.id JOIN currencies cur ON w.currency_id = cur.id WHERE w.balance > 0 AND w.deleted_at IS NULL;",
+    "expected_result": [
+      {
+        "client_name": "Namusu",
+        "currency_code": "UGX",
+        "balance": "182500.0000"
+      },
+      {
+        "client_name": "Karen",
+        "currency_code": "UGX",
+        "balance": "27027.0000"
+      },
+      {
+        "client_name": "Karen",
+        "currency_code": "SSP",
+        "balance": "53400.0000"
+      },
+      {
+        "client_name": "Karen",
+        "currency_code": "UGX",
+        "balance": "27027.0000"
+      },
+      {
+        "client_name": "Kaleb",
+        "currency_code": "UGX",
+        "balance": "500000.0000"
+      }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["client_name", "currency_code", "balance"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["Namusu", "Kaleb", "182500", "500000"]
+  },
+  {
+    "id": "E10",
+    "category": "join",
+    "question": "Show the 5 most recent transactions with their reference number, type, and teller name.",
+    "reference_sql": "SELECT t.ref_no, t.type, u.name AS teller_name FROM transactions t JOIN users u ON t.teller_id = u.id ORDER BY t.created_at DESC, t.id DESC LIMIT 5;",
+    "expected_result": [
+      {
+        "ref_no": "FX-20261015-PRG1",
+        "type": "exchange",
+        "teller_name": "demo"
+      },
+      {
+        "ref_no": "FX-20261015-ET25",
+        "type": "exchange",
+        "teller_name": "demo"
+      },
+      {
+        "ref_no": "FX-20261015-Y63C",
+        "type": "exchange",
+        "teller_name": "demo"
+      },
+      {
+        "ref_no": "FX-20261015-7LII",
+        "type": "exchange",
+        "teller_name": "demo"
+      },
+      {
+        "ref_no": "FX-20261015-RDGQ",
+        "type": "exchange",
+        "teller_name": "demo"
+      }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["ref_no", "type", "teller_name"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["FX-20261015-PRG1", "demo"]
+  },
+  {
+    "id": "E11",
+    "category": "join",
+    "question": "List all roles and the count of permissions assigned to each role.",
+    "reference_sql": "SELECT r.name AS role_name, COUNT(rp.permission_id) AS permission_count FROM roles r LEFT JOIN role_permission rp ON r.id = rp.role_id GROUP BY r.id, r.name;",
+    "expected_result": [
+      { "role_name": "Admin", "permission_count": 30 },
+      { "role_name": "Teller", "permission_count": 18 },
+      { "role_name": "Agent", "permission_count": 0 }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["role_name", "permission_count"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["Admin", "Teller", "Agent", "30", "18"]
+  },
+  {
+    "id": "E12",
+    "category": "aggregation",
+    "question": "Calculate the total sum of credit balances across all clients.",
+    "reference_sql": "SELECT SUM(credit_balance) AS total_credit FROM clients;",
+    "expected_result": [{ "total_credit": "150.0000" }],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_regex": ["\\b150\\b"]
+  },
+  {
+    "id": "E13",
+    "category": "aggregation",
+    "question": "Calculate the total sum of non-reversed expenses grouped by expense category name.",
+    "reference_sql": "SELECT ec.name AS expense_category_name, SUM(e.amount) AS total_amount FROM expenses e JOIN expense_categories ec ON e.expense_category_id = ec.id WHERE e.is_reversed = 0 GROUP BY ec.id, ec.name;",
+    "expected_result": [
+      { "expense_category_name": "Salary", "total_amount": "150000.0000" }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["expense_category_name", "total_amount"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["Salary", "150000"]
+  },
+  {
+    "id": "E14",
+    "category": "aggregation",
+    "question": "Count the total number of non-deleted till entries recorded under till session ID 5, broken down by movement type.",
+    "reference_sql": "SELECT movement_type, COUNT(*) AS count FROM till_entries WHERE till_session_id = 5 AND deleted_at IS NULL GROUP BY movement_type;",
+    "expected_result": [
+      { "movement_type": "in", "count": 2 },
+      { "movement_type": "out", "count": 10 }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["movement_type", "count"],
+    "checks": ["equivalence"]
+  },
+  {
+    "id": "E15",
+    "category": "aggregation",
+    "question": "List the count of pending settlements broken down by status.",
+    "reference_sql": "SELECT status, COUNT(*) AS count FROM pending_settlements GROUP BY status;",
+    "expected_result": [
+      { "status": "settled", "count": 20 },
+      { "status": "unsettled", "count": 7 }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["settled", "unsettled"]
+  },
+  {
+    "id": "E16",
+    "category": "aggregation",
+    "question": "Count how many currencies are currently available (not soft-deleted) in the system.",
+    "reference_sql": "SELECT COUNT(*) AS currency_count FROM currencies WHERE deleted_at IS NULL;",
+    "expected_result": [{ "currency_count": 4 }],
+    "comparison_mode": "exact",
+    "checks": ["correctness"],
+    "expected_answer_regex": ["\\b4\\b"]
+  },
+  {
+    "id": "E17",
+    "category": "aggregation",
+    "question": "Find the total commission amount paid out for each agent line grouped by agent and period month.",
+    "reference_sql": "SELECT agent_line_id, period_month, SUM(amount) AS total_commission FROM agent_commissions GROUP BY agent_line_id, period_month ORDER BY period_month;",
+    "expected_result": [
+      {
+        "agent_line_id": 1,
+        "period_month": "2026-04-01",
+        "total_commission": "150000.0000"
+      },
+      {
+        "agent_line_id": 1,
+        "period_month": "2026-05-01",
+        "total_commission": "300000.0000"
+      }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["150000", "300000", "2026-04", "2026-05"]
+  },
+  {
+    "id": "E18",
+    "category": "conditional",
+    "question": "Retrieve the latest active client rates for the 'send' direction and 'cash' rate type (exclude soft-deleted rows).",
+    "reference_sql": "SELECT id, currency_pair_id, rate FROM client_rates WHERE direction = 'send' AND rate_type = 'cash' AND superseded_at IS NULL AND deleted_at IS NULL;",
+    "expected_result": [
+      { "id": 12, "currency_pair_id": 1, "rate": "0.540540" },
+      { "id": 14, "currency_pair_id": 5, "rate": "0.000270" },
+      { "id": 16, "currency_pair_id": 2, "rate": "3680.000000" },
+      { "id": 18, "currency_pair_id": 8, "rate": "6700.000000" },
+      { "id": 20, "currency_pair_id": 7, "rate": "3650.000000" }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["equivalence"],
+    "expected_answer_contains": ["0.540540", "3650"]
+  },
+  {
+    "id": "E19",
+    "category": "conditional",
+    "question": "List all credit transactions (is_credit = 1) whose matching pending settlement is still 'unsettled'.",
+    "reference_sql": "SELECT t.id, t.ref_no, ps.amount_due, ps.amount_remaining FROM transactions t JOIN pending_settlements ps ON t.id = ps.transaction_id WHERE t.is_credit = 1 AND ps.status = 'unsettled' ORDER BY t.id;",
+    "expected_result": [
+      {
+        "id": 90,
+        "ref_no": "FX-20260609-IHBP",
+        "amount_due": "100000.00",
+        "amount_remaining": "0.0000"
+      },
+      {
+        "id": 91,
+        "ref_no": "FX-20260609-FROF",
+        "amount_due": "185000.00",
+        "amount_remaining": "85000.0000"
+      },
+      {
+        "id": 159,
+        "ref_no": "FX-20261015-Y63C",
+        "amount_due": "50.00",
+        "amount_remaining": "50.0000"
+      },
+      {
+        "id": 160,
+        "ref_no": "FX-20261015-ET25",
+        "amount_due": "100.00",
+        "amount_remaining": "100.0000"
+      },
+      {
+        "id": 161,
+        "ref_no": "FX-20261015-PRG1",
+        "amount_due": "100000.00",
+        "amount_remaining": "100000.0000"
+      }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["FX-20260609-IHBP", "FX-20260609-FROF"]
+  },
+  {
+    "id": "E20",
+    "category": "conditional",
+    "question": "List all transactions that have been reversed, including reference number, reversing user name, and reversal reason.",
+    "reference_sql": "SELECT t.ref_no, u.name AS reversing_user_name, t.reversal_reason FROM transactions t LEFT JOIN users u ON t.reversed_by = u.id WHERE t.is_reversed = 1;",
+    "expected_result": [
+      {
+        "ref_no": "FX-20260601-AZEX",
+        "reversing_user_name": "demo",
+        "reversal_reason": "wrong rates applied"
+      },
+      {
+        "ref_no": "FX-20260601-ZU5Q",
+        "reversing_user_name": "demo",
+        "reversal_reason": "wrong rate applied"
+      },
+      {
+        "ref_no": "FX-20260603-HOYZ",
+        "reversing_user_name": "demo",
+        "reversal_reason": "wrong rates"
+      },
+      {
+        "ref_no": "FX-20260603-7CJ0",
+        "reversing_user_name": "demo",
+        "reversal_reason": "wrong rates"
+      },
+      {
+        "ref_no": "FX-20260609-FROF",
+        "reversing_user_name": "demo",
+        "reversal_reason": "wrong number"
+      },
+      {
+        "ref_no": "FX-20260616-4OV9",
+        "reversing_user_name": "demo",
+        "reversal_reason": "wrong information"
+      },
+      {
+        "ref_no": "FX-20260616-VD11",
+        "reversing_user_name": "demo",
+        "reversal_reason": "cancelled"
+      }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["ref_no", "reversing_user_name", "reversal_reason"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["FX-20260601-AZEX", "wrong rates"]
+  },
+  {
+    "id": "E21",
+    "category": "conditional",
+    "question": "List all closed till sessions for USD (currency_id = 3) with their opening and closing balances.",
+    "reference_sql": "SELECT id, session_date, opening_balance, closing_balance FROM till_sessions WHERE currency_id = 3 AND closed_at IS NOT NULL;",
+    "expected_result": [
+      {
+        "id": 2,
+        "session_date": "2026-05-12",
+        "opening_balance": "2000.0000",
+        "closing_balance": "2000.0000"
+      },
+      {
+        "id": 6,
+        "session_date": "2026-05-13",
+        "opening_balance": "0.0000",
+        "closing_balance": "115.0000"
+      },
+      {
+        "id": 8,
+        "session_date": "2026-05-18",
+        "opening_balance": "500.0000",
+        "closing_balance": "600.0000"
+      }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": [
+      "id",
+      "session_date",
+      "opening_balance",
+      "closing_balance"
+    ],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["2026-05-12", "2026-05-13", "2026-05-18"]
+  },
+  {
+    "id": "E22",
+    "category": "conditional",
+    "question": "List all expenses that have not been reversed, including reference number, amount, and description.",
+    "reference_sql": "SELECT ref_no, amount, description FROM expenses WHERE is_reversed = 0;",
+    "expected_result": [
+      {
+        "ref_no": "EXP-20260619-Q9AR",
+        "amount": "150000.0000",
+        "description": "weekly salary"
+      }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["EXP-20260619-Q9AR", "150000", "weekly salary"]
+  },
+  {
+    "id": "E23",
+    "category": "join",
+    "question": "List all non-deleted agent rates with the name of the user who set them.",
+    "reference_sql": "SELECT ar.id, ar.currency_pair_id, ar.buy_rate, ar.sell_rate, u.name AS set_by_user FROM agent_rates ar JOIN users u ON ar.set_by = u.id WHERE ar.deleted_at IS NULL;",
+    "expected_result": [
+      {
+        "id": 2,
+        "currency_pair_id": 1,
+        "buy_rate": "3.000000",
+        "sell_rate": "27.000000",
+        "set_by_user": "demo"
+      },
+      {
+        "id": 3,
+        "currency_pair_id": 3,
+        "buy_rate": "28.000000",
+        "sell_rate": "3.000000",
+        "set_by_user": "demo"
+      },
+      {
+        "id": 5,
+        "currency_pair_id": 4,
+        "buy_rate": "0.300000",
+        "sell_rate": "0.400000",
+        "set_by_user": "demo"
+      },
+      {
+        "id": 6,
+        "currency_pair_id": 2,
+        "buy_rate": "3750.000000",
+        "sell_rate": "3760.000000",
+        "set_by_user": "demo"
+      },
+      {
+        "id": 7,
+        "currency_pair_id": 5,
+        "buy_rate": "30.000000",
+        "sell_rate": "40.000000",
+        "set_by_user": "demo"
+      },
+      {
+        "id": 8,
+        "currency_pair_id": 7,
+        "buy_rate": "3720.000000",
+        "sell_rate": "3720.000000",
+        "set_by_user": "demo"
+      }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": [
+      "id",
+      "currency_pair_id",
+      "buy_rate",
+      "sell_rate",
+      "set_by_user"
+    ],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["demo", "3750.000000"]
+  },
+  {
+    "id": "E24",
+    "category": "ordering",
+    "question": "List the clients (non-deleted) with a positive credit balance, ordered from highest to lowest balance.",
+    "reference_sql": "SELECT name, credit_balance FROM clients WHERE credit_balance > 0 AND deleted_at IS NULL ORDER BY credit_balance DESC;",
+    "expected_result": [
+      { "name": "Negus", "credit_balance": "100.0000" },
+      { "name": "Namusu", "credit_balance": "50.0000" }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["Negus", "Namusu", "100", "50"]
+  },
+  {
+    "id": "E25",
+    "category": "ordering",
+    "question": "Show the 3 most recent transactions by created_at, with their reference number and type.",
+    "reference_sql": "SELECT ref_no, type FROM transactions ORDER BY created_at DESC, id DESC LIMIT 3;",
+    "expected_result": [
+      { "ref_no": "FX-20261015-PRG1", "type": "exchange" },
+      { "ref_no": "FX-20261015-ET25", "type": "exchange" },
+      { "ref_no": "FX-20261015-Y63C", "type": "exchange" }
+    ],
+    "comparison_mode": "projected",
+    "expected_columns": ["ref_no", "type"],
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": [
+      "FX-20261015-PRG1",
+      "FX-20261015-ET25",
+      "FX-20261015-Y63C"
+    ]
+  },
+  {
+    "id": "E26",
+    "category": "ordering",
+    "question": "Show the 3 till sessions with the highest opening balance. Order by opening balance descending, and break ties by ascending session ID.",
+    "reference_sql": "SELECT id, opening_balance FROM till_sessions ORDER BY opening_balance DESC, id ASC LIMIT 3;",
+    "expected_result": [
+      { "id": 27, "opening_balance": "30000000.0000" },
+      { "id": 3, "opening_balance": "10000000.0000" },
+      { "id": 11, "opening_balance": "10000000.0000" }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["30000000", "10000000"]
+  },
+  {
+    "id": "E27",
+    "category": "edge",
+    "question": "Retrieve the ID and name of the currency with the code 'XYZ'.",
+    "reference_sql": "SELECT id, name FROM currencies WHERE code = 'XYZ';",
+    "expected_result": [],
+    "comparison_mode": "exact",
+    "checks": ["equivalence"]
+  },
+  {
+    "id": "E28",
+    "category": "edge",
+    "question": "List agent lines that have no associated user (user_id is NULL), showing their ID, company name, and contact name.",
+    "reference_sql": "SELECT id, company_name, contact_name FROM agent_lines WHERE user_id IS NULL;",
+    "expected_result": [
+      {
+        "id": 1,
+        "company_name": "MTN Uganda",
+        "contact_name": "HALVEK TECHNOLOGIES"
+      }
+    ],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_contains": ["MTN Uganda", "HALVEK"]
+  },
+  {
+    "id": "E29",
+    "category": "edge",
+    "question": "Count how many non-reversed transactions have a profit_amount greater than zero.",
+    "reference_sql": "SELECT COUNT(*) AS count FROM transactions WHERE profit_amount > 0 AND is_reversed = 0;",
+    "expected_result": [{ "count": 9 }],
+    "comparison_mode": "exact",
+    "checks": ["correctness", "equivalence"],
+    "expected_answer_regex": ["\\b9\\b"]
+  },
+  {
+    "id": "E30",
+    "category": "edge",
+    "question": "Retrieve the name and phone of the client with phone '+999999999999'.",
+    "reference_sql": "SELECT name, phone FROM clients WHERE phone = '+999999999999';",
+    "expected_result": [],
+    "comparison_mode": "exact",
+    "checks": ["equivalence"]
+  }
+]

@@ -1,3 +1,4 @@
+// src/core/agent/observability.ts
 export type AgentToolEvent =
   | {
       type: 'tool-start';
@@ -12,6 +13,7 @@ export type AgentToolEvent =
       durationMs: number;
       data?: unknown;
       error?: string;
+      databaseExecutionAttempted?: boolean;
     };
 
 export interface AgentObserver {

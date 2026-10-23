@@ -33,6 +33,7 @@ export class MySqlAdapter implements DatabaseAdapter {
       connectionLimit: config.connectionLimit ?? 5,
       waitForConnections: true,
       enableKeepAlive: true,
+      dateStrings: true,
     };
 
     this.pool = mysql.createPool(options);

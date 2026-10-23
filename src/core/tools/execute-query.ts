@@ -14,6 +14,7 @@ export async function executeQuery(
   if (!validation.valid || !validation.sql) {
     return {
       success: false,
+      executionAttempted: false,
       error: validation.reason ?? 'SQL query failed validation.',
     };
   }
@@ -27,11 +28,13 @@ export async function executeQuery(
 
     return {
       success: true,
+      executionAttempted: true,
       data: result,
     };
   } catch (error) {
     return {
       success: false,
+      executionAttempted: true,
       error: error instanceof Error ? error.message : 'Failed to execute query.',
     };
   }
