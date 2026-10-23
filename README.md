@@ -113,3 +113,15 @@ never cached. Configure the TTL with `SCHEMA_CACHE_TTL_MS`.
 The cache is process-local and is cleared when the CLI process exits. This keeps the
 current CLI simple while reducing repeated metadata queries during an agent run or future
 long-lived interfaces.
+
+## M9: Evaluation and benchmarking
+
+A first repeatable benchmark is available under `evals/`. It uses a synthetic school-management schema and 25 fixed questions covering filters, joins, aggregation, date ranges, ambiguity, and read-only safety. See [`evals/README.md`](evals/README.md) for setup and scoring rules.
+
+Prepare the disposable `sql_ai_eval` database using `evals/datasets/school-management/schema.sql` and `seed.sql`, configure `.env` to use it, then run:
+
+```bash
+pnpm eval -- --tag m8
+```
+
+The runner saves timestamped JSON traces and a Markdown summary under `evals/reports/`. It automatically records CLI exit status, latency, tool calls, SQL tool attempts, and suspicious destructive SQL in debug output. Answer correctness and result equivalence are explicitly marked pending review; the current CLI does not expose structured result rows or token/cost usage, so the benchmark does not pretend to score those automatically. Use the same model, configuration, database snapshot, and dataset when comparing a baseline with an improved version.

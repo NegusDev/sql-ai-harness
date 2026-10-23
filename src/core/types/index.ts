@@ -101,4 +101,9 @@ export interface SqlToolResult {
   success: boolean;
   data?: unknown;
   error?: string;
+  /**
+     * True when the database adapter was actually called.
+     * False when SQL was rejected before database execution.
+     */
+  executionAttempted?: boolean;
 }

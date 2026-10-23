@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/cli.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval": "tsx evals/runners/run-benchmark.ts"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +22,10 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
+    "@ai-sdk/cerebras": "^3.0.67",
+    "@ai-sdk/google": "^4.0.93",
+    "@ai-sdk/groq": "^4.0.59",
+    "@ai-sdk/openai-compatible": "^3.0.67",
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "ai": "^7.0.127",
     "better-sqlite3": "^13.0.3",

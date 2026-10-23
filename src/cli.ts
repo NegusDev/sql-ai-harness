@@ -3,7 +3,7 @@
 import { Agent } from './core/agent/index.js';
 import { loadConfig } from './config/config.js';
 import { MySqlAdapter } from './database/index.js';
-import { OpenRouterProvider } from './ai/openrouter.js';
+import { createAiProvider } from './ai/factory.js';
 import { CliAgentObserver } from './cli-observer.js';
 import { SchemaCache } from './schema/cache.js';
 import type { ResponseMode } from './core/agent/agent.js';
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
     password: config.database.password,
   });
 
-  const provider = new OpenRouterProvider(config.ai);
+  const provider = createAiProvider(config.ai);
   const databaseContext = await loadDatabaseContext();
   const schemaCache = new SchemaCache({ ttlMs: config.schema.cacheTtlMs });
   const agent = new Agent(

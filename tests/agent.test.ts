@@ -1,3 +1,4 @@
+// test/agent.test.ts
 import { describe, expect, it } from 'vitest';
 import { Agent } from '../src/core/agent/agent.js';
 import type { ModelRequest, ModelResponse, ToolContext } from '../src/core/types/index.js';
@@ -48,8 +49,8 @@ describe('Agent', () => {
       'explain_query',
     ]);
     expect(provider.lastRequest?.maxSteps).toBe(5);
-    expect(provider.lastRequest?.system).toContain('Relationship discovery is a required planning step');
-    expect(provider.lastRequest?.system).toContain('evaluate the actual returned columns and rows');
+    expect(provider.lastRequest?.system).toContain('Call get_relationships again only when additional relationship information is needed');
+    expect(provider.lastRequest?.system).toContain('After each query, inspect the actual result');
     expect(provider.lastRequest?.system).toContain('human-readable fields');
   });
 });
@@ -69,24 +70,84 @@ describe('Agent response modes', () => {
 });
 
 describe('Agent query correctness safeguards', () => {
-  it('requires global relationship discovery and caps SQL execution attempts at three', async () => {
-    let executedQueries = 0;
+  it('requires successful global relationship discovery before SQL execution', async () => {
     const probe = {
       name: 'tool-probe',
       results: [] as Array<{ success: boolean; error?: string }>,
       async generate(request: ModelRequest): Promise<ModelResponse> {
-        const tools = request.tools as Record<string, {
-          execute?: (input: unknown) => Promise<{ success: boolean; error?: string }>;
-        }>;
+        const tools = request.tools as Record<
+          string,
+          {
+            execute?: (
+              input: unknown,
+            ) => Promise<{ success: boolean; error?: string }>;
+          }
+        >;
 
-        this.results.push(await tools.execute_query.execute!({ sql: 'SELECT id FROM users' }));
-        this.results.push(await tools.get_relationships.execute!({ table: 'users' }));
-        this.results.push(await tools.execute_query.execute!({ sql: 'SELECT id FROM users' }));
-        this.results.push(await tools.get_relationships.execute!({}));
-        this.results.push(await tools.execute_query.execute!({ sql: 'SELECT id FROM users' }));
-        this.results.push(await tools.execute_query.execute!({ sql: 'SELECT id FROM users' }));
-        this.results.push(await tools.execute_query.execute!({ sql: 'SELECT id FROM users' }));
-        this.results.push(await tools.execute_query.execute!({ sql: 'SELECT id FROM users' }));
+        // Global discovery failed during Agent.ask().
+        this.results.push(
+          await tools.execute_query.execute!({
+            sql: 'SELECT id FROM users',
+          }),
+        );
+
+        return { text: 'done' };
+      },
+    };
+
+    const probeContext: ToolContext = {
+      ...context,
+      database: {
+        ...context.database,
+        async getRelationships() {
+          throw new Error('Simulated global discovery failure');
+        },
+        async executeQuery() {
+          throw new Error('SQL must not execute after discovery failure');
+        },
+      },
+    };
+
+    await new Agent(probe, probeContext).ask('List active users');
+
+    expect(probe.results[0].success).toBe(false);
+    expect(probe.results[0].error).toContain(
+      'global foreign-key discovery',
+    );
+  });
+
+  it('caps SQL execution attempts at three and rejects unchanged retries', async () => {
+    let executedQueries = 0;
+
+    const probe = {
+      name: 'tool-probe',
+      results: [] as Array<{ success: boolean; error?: string }>,
+      async generate(request: ModelRequest): Promise<ModelResponse> {
+        const tools = request.tools as Record<
+          string,
+          {
+            execute?: (
+              input: unknown,
+            ) => Promise<{ success: boolean; error?: string }>;
+          }
+        >;
+
+        const executeQuery = tools.execute_query.execute!;
+
+        // The agent has already completed global discovery.
+        this.results.push(
+          await executeQuery({ sql: 'SELECT id FROM users WHERE id = 1' }),
+        );
+        this.results.push(
+          await executeQuery({ sql: 'SELECT id FROM users WHERE id = 2' }),
+        );
+        this.results.push(
+          await executeQuery({ sql: 'SELECT id FROM users WHERE id = 3' }),
+        );
+        this.results.push(
+          await executeQuery({ sql: 'SELECT id FROM users WHERE id = 4' }),
+        );
+
         return { text: 'done' };
       },
     };
@@ -97,18 +158,22 @@ describe('Agent query correctness safeguards', () => {
         ...context.database,
         async executeQuery() {
           executedQueries += 1;
-          return { rows: [{ id: executedQueries }], rowCount: 1, executionTimeMs: 1 };
+          return {
+            rows: [{ id: executedQueries }],
+            rowCount: 1,
+            executionTimeMs: 1,
+          };
         },
       },
     };
 
     await new Agent(probe, probeContext).ask('List active users');
 
-    expect(probe.results[0].success).toBe(false);
-    expect(probe.results[0].error).toContain('global foreign-key discovery');
-    expect(probe.results[2].success).toBe(false);
+    expect(probe.results.slice(0, 3).every((r) => r.success)).toBe(true);
+    expect(probe.results[3].success).toBe(false);
+    expect(probe.results[3].error).toContain(
+      'Maximum of 3 SQL query attempts',
+    );
     expect(executedQueries).toBe(3);
-    expect(probe.results.at(-1)?.success).toBe(false);
-    expect(probe.results.at(-1)?.error).toContain('Maximum of 3 SQL query attempts');
   });
 });

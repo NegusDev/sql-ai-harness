@@ -1,15 +1,33 @@
+
 import 'dotenv/config';
 import { z } from 'zod';
 import type { SqlSafetyPolicy } from '../core/types/index.js';
 
+const providerSchema = z.enum([
+  'openrouter',
+  'groq',
+  'google',
+  'cerebras',
+  'ollama',
+]);
+
+export type AiProviderName = z.infer<typeof providerSchema>;
+
 const envSchema = z.object({
-  OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY is required'),
+  AI_PROVIDER: providerSchema.default('openrouter'),
   AI_MODEL: z.string().min(1, 'AI_MODEL is required'),
-  AI_SITE_URL: z
-    .string()
-      .url()
-      .optional()
-      .or(z.literal('')),
+
+  OPENROUTER_API_KEY: z.string().optional(),
+  GROQ_API_KEY: z.string().optional(),
+  GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
+  CEREBRAS_API_KEY: z.string().optional(),
+
+  OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434/v1'),
+
+  AI_SITE_URL: z.preprocess(
+    (value) => value === '' ? undefined : value,
+    z.string().url().optional(),
+  ),
   AI_SITE_NAME: z.string().default('SQL AI Harness'),
 
   DB_DRIVER: z.enum(['mysql', 'postgres', 'sqlite']).default('mysql'),
@@ -28,9 +46,10 @@ const envSchema = z.object({
 
 export interface AppConfig {
   ai: {
-    provider: 'openrouter';
-    apiKey: string;
+    provider: AiProviderName;
+    apiKey?: string;
     model: string;
+    baseUrl?: string;
     siteUrl?: string;
     siteName: string;
   };
@@ -54,11 +73,37 @@ export interface AppConfig {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = envSchema.parse(env);
 
+  const apiKeys: Record<AiProviderName, string | undefined> = {
+    openrouter: parsed.OPENROUTER_API_KEY,
+    groq: parsed.GROQ_API_KEY,
+    google: parsed.GOOGLE_GENERATIVE_AI_API_KEY,
+    cerebras: parsed.CEREBRAS_API_KEY,
+    ollama: undefined,
+  };
+
+  const apiKey = apiKeys[parsed.AI_PROVIDER];
+
+  if (parsed.AI_PROVIDER !== 'ollama' && !apiKey?.trim()) {
+    const envNames: Record<Exclude<AiProviderName, 'ollama'>, string> = {
+      openrouter: 'OPENROUTER_API_KEY',
+      groq: 'GROQ_API_KEY',
+      google: 'GOOGLE_GENERATIVE_AI_API_KEY',
+      cerebras: 'CEREBRAS_API_KEY',
+    };
+
+    throw new Error(
+      `${envNames[parsed.AI_PROVIDER]} is required when AI_PROVIDER=${parsed.AI_PROVIDER}`,
+    );
+  }
+
   return {
     ai: {
-      provider: 'openrouter',
-      apiKey: parsed.OPENROUTER_API_KEY,
+      provider: parsed.AI_PROVIDER,
+      apiKey,
       model: parsed.AI_MODEL,
+      baseUrl: parsed.AI_PROVIDER === 'ollama'
+        ? parsed.OLLAMA_BASE_URL
+        : undefined,
       siteUrl: parsed.AI_SITE_URL,
       siteName: parsed.AI_SITE_NAME,
     },
