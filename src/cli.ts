@@ -8,10 +8,12 @@ import { CliAgentObserver } from './cli-observer.js';
 import { SchemaCache } from './schema/cache.js';
 import type { ResponseMode } from './core/agent/agent.js';
 import { loadDatabaseContext } from './context/db-context.js';
+import { runInit } from './commands/init.js';
 
 function printUsage(): void {
   console.log(`Usage:
-  pnpm dev ask [--mode natural|technical|debug] "your question"
+  sql-ai-harness init [--force]
+  sql-ai-harness ask [--mode natural|technical|debug] "your question"
 
 Modes:
   natural    Business-friendly answer (default)
@@ -53,6 +55,11 @@ function parseAskArgs(args: string[]): { mode: ResponseMode; question: string } 
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
+
+  if (command === 'init') {
+    await runInit(args);
+    return;
+  }
 
   if (command !== 'ask') {
     printUsage();
