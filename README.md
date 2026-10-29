@@ -2,7 +2,82 @@
 
 Open-source, privacy-first AI integration layer for existing relational databases.
 
-## M4: CLI agent
+## CLI and TypeScript SDK
+
+The package provides a CLI and a supported TypeScript SDK entry point. The CLI currently connects to MySQL; the SDK accepts a `DatabaseAdapter` implementation so applications can supply their own database integration.
+
+### Run from a checkout
+
+```bash
+pnpm install
+cp .env.example .env
+pnpm dev ask "List active users"
+```
+
+Configure the AI provider and database values in `.env`. Use a database account with read-only permissions. Schema information and query results may be sent to the selected AI provider as part of inference; configure the provider according to your data-handling requirements.
+
+### Build and run the packaged CLI
+
+```bash
+pnpm build
+node dist/cli.js ask "List active users"
+```
+
+After the package is published, install it globally with:
+
+```bash
+npm install --global sql-ai-harness
+sql-ai-harness ask "List active users"
+```
+
+The CLI reads configuration from environment variables and a `.env` file in the current working directory. See `.env.example` for the supported options.
+
+### Use the TypeScript SDK
+
+```ts
+import {
+  Agent,
+  MySqlAdapter,
+  createAiProvider,
+  loadConfig,
+} from "sql-ai-harness";
+
+const config = loadConfig();
+const database = new MySqlAdapter({
+  host: config.database.host,
+  port: config.database.port,
+  database: config.database.name,
+  user: config.database.user,
+  password: config.database.password,
+});
+
+const provider = createAiProvider(config.ai);
+const agent = new Agent(
+  provider,
+  { database, safety: config.safety },
+  { maxSteps: config.agent.maxSteps, responseMode: "natural" },
+);
+
+try {
+  const result = await agent.ask("List active users");
+  console.log(result.text);
+} finally {
+  await database.close();
+}
+```
+
+The SDK also exports `DatabaseAdapter`, `ToolContext`, agent result/options types, provider interfaces, observer types, and `SchemaCache`. Consumers should import from `sql-ai-harness`, not internal `src/` paths. `createAiProvider` supports the providers configured by the current project; the available database adapter in this release is MySQL.
+
+### Package development checks
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm build
+npm pack --dry-run
+```
+
+## CLI behavior
 
 The current milestone wires the CLI, OpenRouter, the database adapter, safety layer,
 and database tools into a multi-step agent loop.
@@ -76,7 +151,7 @@ The file is optional. Without it, the harness relies on the database schema,
 relationships, query results and other available tools exactly as before.
 With it, the agent has additional user-defined business/domain knowledge.
 
-A template is included as `sql-ai.md.example`.
+A template is included as `sql-ai.example.md`.
 
 
 ## Query correctness safeguards
@@ -114,14 +189,14 @@ The cache is process-local and is cleared when the CLI process exits. This keeps
 current CLI simple while reducing repeated metadata queries during an agent run or future
 long-lived interfaces.
 
-## M9: Evaluation and benchmarking
+## Evaluation and benchmarking
 
-A first repeatable benchmark is available under `evals/`. It uses a synthetic school-management schema and 25 fixed questions covering filters, joins, aggregation, date ranges, ambiguity, and read-only safety. See [`evals/README.md`](evals/README.md) for setup and scoring rules.
+The `evals/` directory contains the fixed benchmark dataset, runner, and saved reports used to evaluate the harness. The runner records structured tool events, database execution attempts, latency, result equivalence, and configured answer checks. See [`evals/README.md`](evals/README.md) for dataset setup and scoring details.
 
-Prepare the disposable `sql_ai_eval` database using `evals/datasets/school-management/schema.sql` and `seed.sql`, configure `.env` to use it, then run:
+Run the benchmark against a disposable evaluation database, using the same provider/model, configuration, database snapshot, and dataset when comparing versions:
 
 ```bash
-pnpm eval -- --tag m8
+pnpm eval -- --tag local-check
 ```
 
-The runner saves timestamped JSON traces and a Markdown summary under `evals/reports/`. It automatically records CLI exit status, latency, tool calls, SQL tool attempts, and suspicious destructive SQL in debug output. Answer correctness and result equivalence are explicitly marked pending review; the current CLI does not expose structured result rows or token/cost usage, so the benchmark does not pretend to score those automatically. Use the same model, configuration, database snapshot, and dataset when comparing a baseline with an improved version.
+A passing benchmark is evidence for the tested cases, not a guarantee of correctness for every schema or question. Review the generated JSON and Markdown reports when changing query-planning, tool, or safety behavior.
