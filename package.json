@@ -70,7 +70,8 @@
     "dist/",
     "README.md",
     "LICENSE",
-    ".env.example"
+    ".env.example",
+    "sql-ai.example.md"
   ],
   "engines": {
     "node": ">=20.0.0"
