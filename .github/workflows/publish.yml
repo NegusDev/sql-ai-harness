@@ -40,9 +40,6 @@ jobs:
       - name: Run test suite
         run: pnpm test
 
-      - name: Build package
-        run: pnpm run build
-
       - name: Verify tag matches package.json version
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
@@ -55,7 +52,6 @@ jobs:
       - name: Determine npm dist-tag
         id: dist-tag
         run: |
-          # Pre-release tags (v1.2.3-beta.1) go to 'next', stable tags to 'latest'.
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             echo "tag=next" >> "$GITHUB_OUTPUT"
           else
@@ -63,11 +59,6 @@ jobs:
           fi
 
       - name: Publish to npm registry
-        run: |
-          pnpm publish \
-            --provenance \
-            --access public \
-            --tag "${{ steps.dist-tag.outputs.tag }}" \
-            --no-git-checks
+        run: pnpm publish --no-git-checks --tag "${{ steps.dist-tag.outputs.tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

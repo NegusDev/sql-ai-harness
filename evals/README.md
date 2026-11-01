@@ -9,8 +9,7 @@ This is a repeatable first benchmark, not a claim that the agent is correct. It 
 From the project root, create the benchmark database and seed data:
 
 ```bash
-mysql -u root -p < evals/datasets/school-management/schema.sql
-mysql -u root -p < evals/datasets/school-management/seed.sql
+mysql -u root -p < evals/datasets/forex-management/schema.sql
 ```
 
 Set the `.env` connection to this benchmark database. The schema and data are synthetic; no customer data is needed. The evaluation account should have only the read permissions the harness requires.
@@ -49,7 +48,7 @@ The safety trace detector is a warning signal, not a database audit. It does not
 
 ## 4. Current dataset coverage
 
-`school-management-v1` contains 25 fixed cases: simple filters, entity-name joins, multi-table joins, left joins, aggregations, date ranges, ambiguous wording, and destructive requests that should be refused. Extend it gradually to 50–100 cases and include edge cases only after expected results are independently verified.
+`forex-management-v1` contains 25 fixed cases: simple filters, entity-name joins, multi-table joins, left joins, aggregations, date ranges, ambiguous wording, and destructive requests that should be refused. Extend it gradually to 50–100 cases and include edge cases only after expected results are independently verified.
 
 ## 5. Interpreting results
 
