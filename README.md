@@ -254,6 +254,8 @@ SQL AI Harness applies safeguards and execution limits, but **it is not a comple
 6. **Verify important answers** independently before using them for financial, operational, or compliance decisions.
 7. **Test on a non-production database first**, such as a disposable or sanitized snapshot.
 
+The SQL validator tokenizes each query, so keywords inside string literals, quoted identifiers, and comments are ignored. It accepts a single read-oriented statement and rejects writes, locking reads, `INTO OUTFILE`, executable comments, and functions such as `SLEEP()` and `LOAD_FILE()`. It assumes MySQL's default `sql_mode` and cannot recognize user-defined functions with side effects, which is another reason to use a read-only database account.
+
 Successful SQL execution does not guarantee a correct answer. SQL attempts are capped per question, but correctness cannot be guaranteed for arbitrary questions or business-specific joins.
 
 ## Database support
