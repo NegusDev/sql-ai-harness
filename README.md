@@ -10,7 +10,7 @@ Bring your own model. Run it yourself.
 [![node](https://img.shields.io/node/v/sql-ai-harness.svg)](https://nodejs.org)
 [![license](https://img.shields.io/npm/l/sql-ai-harness.svg)](./LICENSE)
 
-> **Development status:** SQL AI Harness is under active development (`0.1.0`). Validate it against your own schema and workload before relying on it, especially for consequential decisions.
+> **Development status:** SQL AI Harness is under active development (pre-1.0, so the API may change between minor versions). Validate it against your own schema and workload before relying on it, especially for consequential decisions.
 
 ## Contents
 
@@ -51,7 +51,7 @@ It is a reusable layer between an AI provider and an existing relational databas
 
 ## Requirements
 
-- **Node.js 20 or later**
+- **Node.js 22 or later**
 - A **MySQL or MariaDB** database, and an account with read access to the tables the agent should see
 - Credentials and a model ID for one supported AI provider (or a reachable Ollama endpoint)
 

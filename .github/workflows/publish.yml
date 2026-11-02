@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck
+        run: pnpm typecheck
+
       - name: Run test suite
         run: pnpm test
 
@@ -58,7 +61,11 @@ jobs:
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
+      # Trusted publishing (OIDC) needs npm >= 11.5.1 and a Trusted Publisher
+      # configured on npmjs.com for this repo and this exact workflow file
+      # (publish.yml). No NPM_TOKEN is used; provenance is generated automatically.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
       - name: Publish to npm registry
-        run: pnpm publish --no-git-checks --tag "${{ steps.dist-tag.outputs.tag }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --tag "${{ steps.dist-tag.outputs.tag }}"

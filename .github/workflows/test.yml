@@ -1,6 +1,10 @@
 name: Test Suite
 
 on:
+  push:
+    branches:
+      - main
+      - dev
   pull_request:
     branches:
       - main
@@ -17,7 +21,14 @@ permissions:
 
 jobs:
   test:
+    name: Node ${{ matrix.node }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]    # package.json engines: >=22
 
     steps:
       - name: Checkout repository
@@ -26,16 +37,25 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10          # ≥ 10.5.0 → `packages` field is now optional
+          version: 10
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: pnpm          # re-enabled — pnpm is available by now
+          node-version: ${{ matrix.node }}
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck
+        run: pnpm typecheck
+
       - name: Run test suite
         run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Check package contents
+        run: pnpm pack:check
