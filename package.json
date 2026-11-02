@@ -1,6 +1,6 @@
 {
   "name": "sql-ai-harness",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
@@ -42,16 +42,20 @@
     "pack:check": "pnpm pack --dry-run"
   },
   "keywords": [
-    "sql",
-    "ai",
-    "agent",
-    "database",
     "text-to-sql",
+    "nl2sql",
+    "sql",
+    "mysql",
+    "mariadb",
+    "ai-agent",
+    "llm",
+    "database",
+    "cli",
     "typescript"
   ],
   "author": "NegusDev",
   "license": "ISC",
-  "description": "A provider-independent TypeScript SQL AI harness for querying existing relational databases.",
+  "description": "Open-source, self-hostable Text-to-SQL harness: ask questions about your existing MySQL/MariaDB database in plain language, with a CLI and TypeScript SDK. Bring your own model.",
   "repository": {
     "type": "git",
     "url": "https://github.com/NegusDev/sql-ai-harness.git"
@@ -67,17 +71,12 @@
     "@ai-sdk/openai-compatible": "^3.0.67",
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "ai": "^7.0.127",
-    "better-sqlite3": "^13.0.3",
     "dotenv": "^18.0.5",
-    "drizzle-orm": "1.0.0-rc.4",
-    "hono": "^4.13.13",
     "mysql2": "^3.24.5",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.0.0",
-    "drizzle-kit": "1.0.0-rc.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
