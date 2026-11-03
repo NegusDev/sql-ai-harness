@@ -46,6 +46,7 @@ It is a reusable layer between an AI provider and an existing relational databas
 - **Safety by default:** configurable row, byte, timeout, and agent-step limits; capped SQL attempts; foreign-key discovery required before any SQL runs.
 - **Optional `sql-ai.md`** for business rules and vocabulary the model cannot infer from the schema.
 - **Three response modes:** natural, technical, and debug.
+- **`validate` command** that checks your config, database, foreign keys, and AI provider before you ask anything.
 - **In-process schema cache** so repeated lookups in a run don't hit the database twice.
 - **Benchmark suite** in `evals/` for reproducible evaluation of changes.
 
@@ -74,7 +75,7 @@ The wizard asks for:
 - An API key (hosted providers) or a base URL (Ollama)
 - Agent step limit, SQL row limit, and schema-cache lifetime
 
-It tests the **database connection** and lists tables before saving. It does **not** send an inference request, so a successful `init` does not prove the provider key or model ID is correct.
+It tests the **database connection** and lists tables before saving. It does **not** send an inference request, so a successful `init` does not prove the provider key or model ID is correct. The next step checks that.
 
 If `.env` already exists, the wizard asks before updating harness settings and preserves unrelated entries. Skip the confirmation with `--force`:
 
@@ -84,13 +85,31 @@ npx sql-ai-harness init --force
 
 Keep `.env` private and out of version control. The wizard writes it with restrictive permissions where supported.
 
-### 2. Ask a question
+### 2. Check your setup
+
+```bash
+npx sql-ai-harness validate
+```
+
+`validate` checks your configuration, connects to the database, confirms the account can see tables and foreign keys, and sends **one tiny request** to your AI provider to confirm the key and model work. It never reads table data and never runs model-written SQL. Each line reports `[ok]`, `[warn]`, `[fail]` or `[skip]`, and the command exits with a non-zero status if anything fails, so it also works in scripts and CI.
+
+```text
+[ok]   Configuration: provider=openrouter, model=openai/gpt-4o-mini
+[ok]   Database connection: Connected to 127.0.0.1:3306/mydb; 27 tables visible.
+[ok]   Foreign keys: 42 declared relationships found.
+[ok]   AI provider: openrouter answered using model openai/gpt-4o-mini.
+[skip] Business context (sql-ai.md): No sql-ai.md found. This is optional.
+```
+
+Use `--skip-provider` to check only the configuration and database, without contacting the AI provider.
+
+### 3. Ask a question
 
 ```bash
 npx sql-ai-harness ask "How many students are enrolled?"
 ```
 
-### 3. Install globally (optional)
+### 4. Install globally (optional)
 
 ```bash
 npm install --global sql-ai-harness
@@ -341,7 +360,7 @@ tests/            Automated tests
 - Verify `AI_MODEL` is the exact model ID the provider expects.
 - Check that the API key is active and has quota and access to the model.
 - For Ollama, verify the endpoint is reachable and the model is installed.
-- Remember that `init` tests the database, not the AI provider.
+- Run `sql-ai-harness validate`. It sends one tiny request to the provider and reports whether the key, model, and network path work. (`init` only tests the database.)
 
 ### The answer is incorrect or incomplete
 
