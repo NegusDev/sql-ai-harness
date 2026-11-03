@@ -4,15 +4,24 @@ This is a repeatable first benchmark, not a claim that the agent is correct. It 
 
 ## 1. Prepare a disposable MySQL database
 
-**Warning:** `schema.sql` drops and recreates tables in the `sql_ai_eval` database. Do not point it at a real or production database. Use a dedicated local MySQL instance/database and a least-privilege account for the harness.
+**Warning:** `schema.sql` runs `DROP DATABASE IF EXISTS sql_ai_eval` and then recreates it. Do not run it on a server where a database with that name matters. Use a dedicated local MySQL/MariaDB instance and a least-privilege account for the harness.
 
-From the project root, create the benchmark database and seed data:
+From the project root, create the benchmark database and seed data (the file creates and selects `sql_ai_eval` itself):
 
 ```bash
 mysql -u root -p < evals/datasets/forex-management/schema.sql
 ```
 
-Set the `.env` connection to this benchmark database. The schema and data are synthetic; no customer data is needed. The evaluation account should have only the read permissions the harness requires.
+Create a read-only account for the harness, which is all the benchmark needs (all 30 reference queries run under it):
+
+```sql
+CREATE USER 'harness_ro'@'localhost' IDENTIFIED BY 'choose-a-password';
+GRANT SELECT ON sql_ai_eval.* TO 'harness_ro'@'localhost';
+```
+
+Then point `.env` at it (`DB_NAME=sql_ai_eval`, `DB_USER=harness_ro`) and run `sql-ai-harness validate` to confirm the setup.
+
+The schema and data are synthetic. The structure comes from a forex-management application, but every client name, phone number and email is a fictional placeholder, and no passwords, sessions or cache entries are included. The three seeded users (`demo`, `admin`, `test`) share a placeholder password hash and are not meant for login.
 
 ## 2. Pin the experiment
 
