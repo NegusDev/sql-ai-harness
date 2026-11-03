@@ -41,11 +41,11 @@
   {
     "id": "E04",
     "category": "filter",
-    "question": "Retrieve the client name, credit limit, and credit balance for the client with phone '+256767606429'.",
-    "reference_sql": "SELECT name, credit_limit, credit_balance FROM clients WHERE phone = '+256767606429';",
+    "question": "Retrieve the client name, credit limit, and credit balance for the client with phone '+256700000003'.",
+    "reference_sql": "SELECT name, credit_limit, credit_balance FROM clients WHERE phone = '+256700000003';",
     "expected_result": [
       {
-        "name": "Negus",
+        "name": "Charlie Imports",
         "credit_limit": "0.0000",
         "credit_balance": "100.0000"
       }
@@ -53,7 +53,7 @@
     "comparison_mode": "projected",
     "expected_columns": ["name", "credit_limit", "credit_balance"],
     "checks": ["correctness", "equivalence"],
-    "expected_answer_contains": ["Negus", "100"]
+    "expected_answer_contains": ["Charlie Imports", "100"]
   },
   {
     "id": "E05",
@@ -72,12 +72,12 @@
     "question": "Get the company name and contact name for all agent lines.",
     "reference_sql": "SELECT company_name, contact_name FROM agent_lines;",
     "expected_result": [
-      { "company_name": "MTN Uganda", "contact_name": "HALVEK TECHNOLOGIES" }
+      { "company_name": "MTN Uganda", "contact_name": "Sample Contact Ltd" }
     ],
     "comparison_mode": "projected",
     "expected_columns": ["company_name", "contact_name"],
     "checks": ["correctness", "equivalence"],
-    "expected_answer_contains": ["MTN Uganda", "HALVEK"]
+    "expected_answer_contains": ["MTN Uganda", "Sample Contact"]
   },
   {
     "id": "E07",
@@ -137,27 +137,27 @@
     "reference_sql": "SELECT c.name AS client_name, cur.code AS currency_code, w.balance FROM client_wallets w JOIN clients c ON w.client_id = c.id JOIN currencies cur ON w.currency_id = cur.id WHERE w.balance > 0 AND w.deleted_at IS NULL;",
     "expected_result": [
       {
-        "client_name": "Namusu",
+        "client_name": "Golf Services",
         "currency_code": "UGX",
         "balance": "182500.0000"
       },
       {
-        "client_name": "Karen",
+        "client_name": "Hotel Ventures",
         "currency_code": "UGX",
         "balance": "27027.0000"
       },
       {
-        "client_name": "Karen",
+        "client_name": "Hotel Ventures",
         "currency_code": "SSP",
         "balance": "53400.0000"
       },
       {
-        "client_name": "Karen",
+        "client_name": "Hotel Ventures",
         "currency_code": "UGX",
         "balance": "27027.0000"
       },
       {
-        "client_name": "Kaleb",
+        "client_name": "India Wholesale",
         "currency_code": "UGX",
         "balance": "500000.0000"
       }
@@ -165,7 +165,7 @@
     "comparison_mode": "projected",
     "expected_columns": ["client_name", "currency_code", "balance"],
     "checks": ["correctness", "equivalence"],
-    "expected_answer_contains": ["Namusu", "Kaleb", "182500", "500000"]
+    "expected_answer_contains": ["Golf Services", "India Wholesale", "182500", "500000"]
   },
   {
     "id": "E10",
@@ -520,12 +520,12 @@
     "question": "List the clients (non-deleted) with a positive credit balance, ordered from highest to lowest balance.",
     "reference_sql": "SELECT name, credit_balance FROM clients WHERE credit_balance > 0 AND deleted_at IS NULL ORDER BY credit_balance DESC;",
     "expected_result": [
-      { "name": "Negus", "credit_balance": "100.0000" },
-      { "name": "Namusu", "credit_balance": "50.0000" }
+      { "name": "Charlie Imports", "credit_balance": "100.0000" },
+      { "name": "Golf Services", "credit_balance": "50.0000" }
     ],
     "comparison_mode": "exact",
     "checks": ["correctness", "equivalence"],
-    "expected_answer_contains": ["Negus", "Namusu", "100", "50"]
+    "expected_answer_contains": ["Charlie Imports", "Golf Services", "100", "50"]
   },
   {
     "id": "E25",
@@ -578,12 +578,12 @@
       {
         "id": 1,
         "company_name": "MTN Uganda",
-        "contact_name": "HALVEK TECHNOLOGIES"
+        "contact_name": "Sample Contact Ltd"
       }
     ],
     "comparison_mode": "exact",
     "checks": ["correctness", "equivalence"],
-    "expected_answer_contains": ["MTN Uganda", "HALVEK"]
+    "expected_answer_contains": ["MTN Uganda", "Sample Contact"]
   },
   {
     "id": "E29",
