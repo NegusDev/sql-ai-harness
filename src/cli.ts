@@ -9,11 +9,17 @@ import { SchemaCache } from './schema/cache.js';
 import type { ResponseMode } from './core/agent/agent.js';
 import { loadDatabaseContext } from './context/db-context.js';
 import { runInit } from './commands/init.js';
+import { runValidate } from './commands/validate.js';
 
 function printUsage(): void {
   console.log(`Usage:
   sql-ai-harness init [--force]
+  sql-ai-harness validate [--skip-provider]
   sql-ai-harness ask [--mode natural|technical|debug] "your question"
+
+validate checks your configuration, database connection, foreign keys, and sends
+one tiny request to the AI provider (use --skip-provider to avoid it). It never
+reads table data or runs model-written SQL.
 
 Modes:
   natural    Business-friendly answer (default)
@@ -58,6 +64,11 @@ async function main(): Promise<void> {
 
   if (command === 'init') {
     await runInit(args);
+    return;
+  }
+
+  if (command === 'validate') {
+    await runValidate(args);
     return;
   }
 
