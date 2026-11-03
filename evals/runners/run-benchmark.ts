@@ -886,7 +886,7 @@ async function main(): Promise<void> {
   const limit = nonNegativeInt(arg('--limit', '0'), '--limit');
   const timeoutMs = positiveInt(arg('--timeout-ms', '90000'), '--timeout-ms');
   const datasetPath = path.resolve(
-    arg('--dataset', 'evals/datasets/school-management/questions.json'),
+    arg('--dataset', 'evals/datasets/forex-management/questions.json'),
   );
 
   const raw = await readFile(datasetPath, 'utf8');
