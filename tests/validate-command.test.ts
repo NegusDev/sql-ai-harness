@@ -122,11 +122,11 @@ describe('runValidationChecks', () => {
   it('fails clearly for drivers that are not implemented', async () => {
     const results = await runValidationChecks(
       options,
-      deps({ loadConfig: () => config({ DB_DRIVER: 'postgres' }) }),
+      deps({ loadConfig: () => config({ DB_DRIVER: 'sqlite' }) }),
     );
 
     expect(status(results, 'Database connection')).toBe('fail');
-    expect(results.find((r) => r.name === 'Database connection')?.detail).toContain('postgres');
+    expect(results.find((r) => r.name === 'Database connection')?.detail).toContain('sqlite');
   });
 
   it('reports a failed database connection and still checks the provider', async () => {

@@ -1,7 +1,7 @@
 
 import 'dotenv/config';
 import { z } from 'zod';
-import type { SqlSafetyPolicy } from '../core/types/index.js';
+import type { DatabaseSslMode, SqlSafetyPolicy } from '../core/types/index.js';
 
 const providerSchema = z.enum([
   'openrouter',
@@ -32,10 +32,15 @@ const envSchema = z.object({
 
   DB_DRIVER: z.enum(['mysql', 'postgres', 'sqlite']).default('mysql'),
   DB_HOST: z.string().default('127.0.0.1'),
-  DB_PORT: z.coerce.number().int().positive().default(3306),
+  // Empty means "use the driver's default port" (3306 / 5432).
+  DB_PORT: z.preprocess(
+    (value) => value === '' ? undefined : value,
+    z.coerce.number().int().min(1).max(65535).optional(),
+  ),
   DB_NAME: z.string().default(''),
   DB_USER: z.string().default(''),
   DB_PASSWORD: z.string().default(''),
+  DB_SSL: z.enum(['disable', 'require', 'verify-full']).default('disable'),
 
   SQL_MAX_ROWS: z.coerce.number().int().positive().default(500),
   SQL_QUERY_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
@@ -60,6 +65,7 @@ export interface AppConfig {
     name: string;
     user: string;
     password: string;
+    ssl: DatabaseSslMode;
   };
   safety: SqlSafetyPolicy;
   agent: {
@@ -110,10 +116,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     database: {
       driver: parsed.DB_DRIVER,
       host: parsed.DB_HOST,
-      port: parsed.DB_PORT,
+      port: parsed.DB_PORT ?? (parsed.DB_DRIVER === 'postgres' ? 5432 : 3306),
       name: parsed.DB_NAME,
       user: parsed.DB_USER,
       password: parsed.DB_PASSWORD,
+      ssl: parsed.DB_SSL,
     },
     agent: {
       maxSteps: parsed.AGENT_MAX_STEPS,

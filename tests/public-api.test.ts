@@ -8,6 +8,8 @@ describe('public SDK entry point', () => {
     expect(sdk.createAiProvider).toBeTypeOf('function');
     expect(sdk.loadConfig).toBeTypeOf('function');
     expect(sdk.MySqlAdapter).toBeDefined();
+    expect(sdk.PostgresAdapter).toBeDefined();
+    expect(sdk.createDatabaseAdapter).toBeDefined();
     expect(sdk.SchemaCache).toBeDefined();
   });
 });

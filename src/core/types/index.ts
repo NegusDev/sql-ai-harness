@@ -56,7 +56,16 @@ export interface QueryResult {
   rows: Record<string, unknown>[];
   rowCount: number;
   executionTimeMs: number;
+  /**
+   * True when more rows were available than were returned, because the row or
+   * result-size limit was reached. Answers computed from a truncated result
+   * (counts, sums, "all of ...") are incomplete.
+   */
+  truncated?: boolean;
 }
+
+/** TLS behavior for database connections. Mirrors libpq's sslmode names. */
+export type DatabaseSslMode = 'disable' | 'require' | 'verify-full';
 
 export interface QueryPlan {
   sql: string;

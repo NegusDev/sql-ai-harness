@@ -2,6 +2,7 @@ import mysql, { type Pool, type PoolOptions, type RowDataPacket } from 'mysql2/p
 import type {
   ColumnInfo,
   DatabaseAdapter,
+  DatabaseSslMode,
   QueryExecutionOptions,
   QueryPlan,
   QueryResult,
@@ -9,6 +10,7 @@ import type {
   TableInfo,
   TableSchema,
 } from '../../core/types/index.js';
+import { limitRows } from '../result-limits.js';
 
 export interface MySqlAdapterConfig {
   host: string;
@@ -17,6 +19,11 @@ export interface MySqlAdapterConfig {
   user: string;
   password: string;
   connectionLimit?: number;
+  /**
+   * TLS mode. `require` encrypts without verifying the server certificate;
+   * `verify-full` also verifies it. Defaults to `disable`.
+   */
+  ssl?: DatabaseSslMode;
 }
 
 export class MySqlAdapter implements DatabaseAdapter {
@@ -35,6 +42,12 @@ export class MySqlAdapter implements DatabaseAdapter {
       enableKeepAlive: true,
       dateStrings: true,
     };
+
+    if (config.ssl === 'require') {
+      options.ssl = { rejectUnauthorized: false };
+    } else if (config.ssl === 'verify-full') {
+      options.ssl = { rejectUnauthorized: true };
+    }
 
     this.pool = mysql.createPool(options);
   }
@@ -139,37 +152,17 @@ export class MySqlAdapter implements DatabaseAdapter {
       timeout: timeoutMs,
     });
 
-    const rows = Array.isArray(rawRows)
-      ? (rawRows as RowDataPacket[]).slice(0, maxRows).map((row) => ({ ...row }))
+    const fetched = Array.isArray(rawRows)
+      ? (rawRows as RowDataPacket[]).map((row) => ({ ...row }))
       : [];
 
-    const serialized = JSON.stringify(rows);
-
-    if (Buffer.byteLength(serialized, 'utf8') > maxResultBytes) {
-      const limitedRows: Record<string, unknown>[] = [];
-      let size = 2;
-
-      for (const row of rows) {
-        const rowJson = JSON.stringify(row);
-        const rowSize = Buffer.byteLength(rowJson, 'utf8') + (limitedRows.length > 0 ? 1 : 0);
-
-        if (size + rowSize > maxResultBytes) break;
-
-        limitedRows.push(row);
-        size += rowSize;
-      }
-
-      return {
-        rows: limitedRows,
-        rowCount: limitedRows.length,
-        executionTimeMs: Math.round(performance.now() - startedAt),
-      };
-    }
+    const { rows, truncated } = limitRows(fetched, maxRows, maxResultBytes);
 
     return {
       rows,
       rowCount: rows.length,
       executionTimeMs: Math.round(performance.now() - startedAt),
+      truncated,
     };
   }
 

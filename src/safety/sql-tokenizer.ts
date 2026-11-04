@@ -1,18 +1,33 @@
 /**
- * Minimal MySQL/MariaDB-aware SQL tokenizer used by the safety validator.
+ * Minimal SQL tokenizer used by the safety validator. It understands the
+ * lexical rules of MySQL/MariaDB and PostgreSQL.
  *
  * It is not a full SQL parser. Its only job is to separate the parts of a
  * statement that carry meaning (keywords, identifiers, punctuation) from the
  * parts that do not (string literals, quoted identifiers, comments), so safety
- * rules are applied to real SQL tokens instead of raw text.
+ * rules are applied to real SQL tokens instead of raw text. Getting the lexical
+ * rules of the *target* database exactly right matters: if this tokenizer and
+ * the server disagree about where a string or comment ends, a second statement
+ * can hide inside what the validator thinks is a literal.
  *
- * Assumptions, matching MySQL defaults:
- * - backslash escapes are active inside quoted strings (no NO_BACKSLASH_ESCAPES)
+ * MySQL/MariaDB (defaults assumed):
+ * - `-- ` and `#` line comments, non-nested block comments
+ * - backslash escapes inside '...' and "..." strings (no NO_BACKSLASH_ESCAPES)
  * - double quotes delimit strings, not identifiers (no ANSI_QUOTES)
+ * - executable comments (`/*! ... *\/`, `/*M! ... *\/`) are rejected outright
+ *   because the server executes their contents
  *
- * Executable comments (`/*! ... *\/` and MariaDB's `/*M! ... *\/`) are rejected
- * outright because the server executes their contents.
+ * PostgreSQL:
+ * - `--` line comments (no whitespace needed); `#` is an operator, not a comment
+ * - nested block comments
+ * - '...' strings only escape quotes by doubling; backslash escapes apply only
+ *   to E'...' strings (the adapter pins standard_conforming_strings = on)
+ * - "..." delimits identifiers
+ * - dollar-quoted strings ($$...$$ and $tag$...$tag$)
+ * - U&'...' and U&"..." are rejected: their escapes can spell any name
  */
+
+import type { SqlDialect } from '../core/types/index.js';
 
 export type SqlTokenType = 'word' | 'string' | 'quoted-identifier' | 'punct';
 
@@ -32,8 +47,14 @@ export interface TokenizeResult {
 }
 
 const WORD_CHAR = /[A-Za-z0-9_$\u0080-￿]/;
+const DOLLAR_TAG = /\$(?:[A-Za-z_\u0080-￿][A-Za-z0-9_\u0080-￿]*)?\$/y;
 
-export function tokenizeSql(sql: string): TokenizeResult {
+/**
+ * Tokenizes SQL using the lexical rules of `dialect`. Dialects other than
+ * PostgreSQL use the MySQL rules (no other adapter exists yet).
+ */
+export function tokenizeSql(sql: string, dialect: SqlDialect = 'mysql'): TokenizeResult {
+  const pg = dialect === 'postgres';
   const tokens: SqlToken[] = [];
   const n = sql.length;
   let i = 0;
@@ -48,19 +69,20 @@ export function tokenizeSql(sql: string): TokenizeResult {
       continue;
     }
 
-    // `-- ` line comment. MySQL requires whitespace or a control character
-    // after the two dashes; `--x` is two minus signs, not a comment.
+    // `--` line comment. PostgreSQL always treats `--` as a comment. MySQL
+    // requires whitespace or a control character after the two dashes; `--x`
+    // is two minus signs there, not a comment.
     if (c === '-' && next === '-') {
       const after = sql[i + 2];
-      if (after === undefined || /[\s\u0000-\u001f]/.test(after)) {
+      if (pg || after === undefined || /[\s\u0000-\u001f]/.test(after)) {
         const eol = sql.indexOf('\n', i + 2);
         i = eol === -1 ? n : eol + 1;
         continue;
       }
     }
 
-    // `#` line comment.
-    if (c === '#') {
+    // `#` line comment (MySQL only; in PostgreSQL `#` starts operators like #>).
+    if (c === '#' && !pg) {
       const eol = sql.indexOf('\n', i + 1);
       i = eol === -1 ? n : eol + 1;
       continue;
@@ -68,11 +90,36 @@ export function tokenizeSql(sql: string): TokenizeResult {
 
     // Block comment.
     if (c === '/' && next === '*') {
-      if (sql[i + 2] === '!' || (sql[i + 2] === 'M' && sql[i + 3] === '!')) {
+      if (!pg && (sql[i + 2] === '!' || (sql[i + 2] === 'M' && sql[i + 3] === '!'))) {
         return {
           tokens,
           error: 'Executable comments (/*! ... */) are not allowed.',
         };
+      }
+
+      if (pg) {
+        // PostgreSQL block comments nest.
+        let depth = 1;
+        let j = i + 2;
+
+        while (j < n && depth > 0) {
+          if (sql[j] === '/' && sql[j + 1] === '*') {
+            depth += 1;
+            j += 2;
+          } else if (sql[j] === '*' && sql[j + 1] === '/') {
+            depth -= 1;
+            j += 2;
+          } else {
+            j += 1;
+          }
+        }
+
+        if (depth > 0) {
+          return { tokens, error: 'The query contains an unterminated comment.' };
+        }
+
+        i = j;
+        continue;
       }
 
       const close = sql.indexOf('*/', i + 2);
@@ -84,16 +131,72 @@ export function tokenizeSql(sql: string): TokenizeResult {
       continue;
     }
 
-    // Quoted strings: '...' and "...".
+    // PostgreSQL dollar-quoted strings: $$...$$ or $tag$...$tag$.
+    // `$1` is a parameter placeholder and falls through to the word rule.
+    if (pg && c === '$') {
+      DOLLAR_TAG.lastIndex = i;
+      const match = DOLLAR_TAG.exec(sql);
+
+      if (match) {
+        const tag = match[0];
+        const close = sql.indexOf(tag, i + tag.length);
+
+        if (close === -1) {
+          return { tokens, error: 'The query contains an unterminated dollar-quoted string.' };
+        }
+
+        const end = close + tag.length;
+        tokens.push({ type: 'string', value: sql.slice(i, end), start: i, end });
+        i = end;
+        continue;
+      }
+    }
+
+    // Quoted strings ('...', and "..." in MySQL) and, in PostgreSQL,
+    // double-quoted identifiers.
     if (c === "'" || c === '"') {
       const start = i;
+
+      if (pg) {
+        const previous = tokens[tokens.length - 1];
+        const beforePrevious = tokens[tokens.length - 2];
+
+        // U&'...' / U&"..." (Unicode escapes can spell any identifier).
+        if (
+          previous?.type === 'punct' &&
+          previous.value === '&' &&
+          previous.end === i &&
+          beforePrevious?.type === 'word' &&
+          beforePrevious.value === 'U' &&
+          beforePrevious.end === previous.start
+        ) {
+          return {
+            tokens,
+            error: 'Unicode escape strings and identifiers (U&"...") are not allowed.',
+          };
+        }
+      }
+
+      // E'...' strings treat backslash as an escape character.
+      let backslashEscapes = !pg;
+      let tokenStart = start;
+
+      if (pg && c === "'") {
+        const previous = tokens[tokens.length - 1];
+        if (previous?.type === 'word' && previous.value === 'E' && previous.end === i) {
+          backslashEscapes = true;
+          tokenStart = previous.start;
+          tokens.pop();
+        }
+      }
+
       let j = i + 1;
       let closed = false;
 
       while (j < n) {
         const d = sql[j] as string;
 
-        if (d === '\\') {
+        if (backslashEscapes && d === '\\') {
           j += 2;
           continue;
         }
@@ -112,16 +215,26 @@ export function tokenizeSql(sql: string): TokenizeResult {
       }
 
       if (!closed) {
-        return { tokens, error: 'The query contains an unterminated string.' };
+        return {
+          tokens,
+          error: pg && c === '"'
+            ? 'The query contains an unterminated quoted identifier.'
+            : 'The query contains an unterminated string.',
+        };
       }
 
-      tokens.push({ type: 'string', value: sql.slice(start, j), start, end: j });
+      tokens.push({
+        type: pg && c === '"' ? 'quoted-identifier' : 'string',
+        value: sql.slice(tokenStart, j),
+        start: tokenStart,
+        end: j,
+      });
       i = j;
       continue;
     }
 
-    // Backtick-quoted identifiers.
-    if (c === '`') {
+    // Backtick-quoted identifiers (MySQL only).
+    if (c === '`' && !pg) {
       const start = i;
       let j = i + 1;
       let closed = false;

@@ -23,8 +23,13 @@ export { createAiProvider } from './ai/factory.js';
 export { loadConfig } from './config/config.js';
 export type { AppConfig, AiProviderName } from './config/config.js';
 
-export { MySqlAdapter } from './database/index.js';
-export type { MySqlAdapterConfig, DatabaseAdapter } from './database/index.js';
+export { MySqlAdapter, PostgresAdapter, createDatabaseAdapter } from './database/index.js';
+export type {
+  MySqlAdapterConfig,
+  PostgresAdapterConfig,
+  DatabaseConnectionConfig,
+  DatabaseAdapter,
+} from './database/index.js';
 
 export type {
   ColumnInfo,
