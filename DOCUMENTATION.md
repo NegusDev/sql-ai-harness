@@ -4,7 +4,7 @@ Open-source, privacy-first AI integration layer for existing relational database
 
 ## CLI and TypeScript SDK
 
-The package provides a CLI and a supported TypeScript SDK entry point. The CLI currently connects to MySQL; the SDK accepts a `DatabaseAdapter` implementation so applications can supply their own database integration.
+The package provides a CLI and a supported TypeScript SDK entry point. The CLI connects to MySQL/MariaDB or PostgreSQL (`DB_DRIVER`); the SDK accepts a `DatabaseAdapter` implementation so applications can supply their own database integration.
 
 ### Run from a checkout
 
@@ -37,19 +37,13 @@ The CLI reads configuration from environment variables and a `.env` file in the 
 ```ts
 import {
   Agent,
-  MySqlAdapter,
+  createDatabaseAdapter,
   createAiProvider,
   loadConfig,
 } from "sql-ai-harness";
 
 const config = loadConfig();
-const database = new MySqlAdapter({
-  host: config.database.host,
-  port: config.database.port,
-  database: config.database.name,
-  user: config.database.user,
-  password: config.database.password,
-});
+const database = createDatabaseAdapter(config.database);
 
 const provider = createAiProvider(config.ai);
 const agent = new Agent(
@@ -66,7 +60,7 @@ try {
 }
 ```
 
-The SDK also exports `DatabaseAdapter`, `ToolContext`, agent result/options types, provider interfaces, observer types, and `SchemaCache`. Consumers should import from `sql-ai-harness`, not internal `src/` paths. `createAiProvider` supports the providers configured by the current project; the available database adapter in this release is MySQL.
+The SDK also exports `DatabaseAdapter`, `ToolContext`, agent result/options types, provider interfaces, observer types, and `SchemaCache`. Consumers should import from `sql-ai-harness`, not internal `src/` paths. `createAiProvider` supports the providers configured by the current project; the available database adapters in this release are MySQL/MariaDB and PostgreSQL (`createDatabaseAdapter`, `MySqlAdapter`, `PostgresAdapter`).
 
 ### Package development checks
 
@@ -99,7 +93,7 @@ DB_USER=read_only_user
 DB_PASSWORD=your_password
 ```
 
-The database connection currently supports MySQL.
+The database connection supports MySQL/MariaDB (`DB_DRIVER=mysql`) and PostgreSQL (`DB_DRIVER=postgres`, optional `DB_SSL=require|verify-full`).
 
 ### Ask a question
 

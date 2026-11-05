@@ -47,6 +47,8 @@
     "sql",
     "mysql",
     "mariadb",
+    "postgresql",
+    "postgres",
     "ai-agent",
     "llm",
     "database",
@@ -55,7 +57,7 @@
   ],
   "author": "NegusDev",
   "license": "ISC",
-  "description": "Open-source, self-hostable Text-to-SQL harness: ask questions about your existing MySQL/MariaDB database in plain language, with a CLI and TypeScript SDK. Bring your own model.",
+  "description": "Open-source, self-hostable Text-to-SQL harness: ask questions about your existing MySQL, MariaDB, or PostgreSQL database in plain language, with a CLI and TypeScript SDK. Bring your own model.",
   "repository": {
     "type": "git",
     "url": "https://github.com/NegusDev/sql-ai-harness.git"
@@ -73,10 +75,14 @@
     "ai": "^7.0.127",
     "dotenv": "^18.0.5",
     "mysql2": "^3.24.5",
+    "pg": "^8.23.1",
+    "pg-cursor": "^2.22.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
+    "@types/pg-cursor": "^2.7.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"

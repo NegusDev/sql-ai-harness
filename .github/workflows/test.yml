@@ -25,6 +25,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # PostgreSQL for the adapter integration tests (tests/postgres-adapter.test.ts).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: harness
+          POSTGRES_PASSWORD: harness-pass
+          POSTGRES_DB: harness_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U harness -d harness_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_PG_HOST: 127.0.0.1
+      TEST_PG_PORT: 5432
+      TEST_PG_DATABASE: harness_test
+      TEST_PG_USER: harness
+      TEST_PG_PASSWORD: harness-pass
+
     strategy:
       fail-fast: false
       matrix:

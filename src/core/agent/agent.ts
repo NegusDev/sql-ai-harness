@@ -184,6 +184,7 @@ export class Agent {
         "After each query, inspect the actual result. A successful query returning zero rows is a valid result, not automatically a query failure. Report that no matching records were found when that is what the result establishes. Do not broaden filters or remove conditions merely to obtain rows.",
         "If a query returns zero rows, retry only when you can identify a specific, evidence-based reason the query may be wrong, such as an incorrect join, column, or filter. Do not retry an unchanged query.",
         `You may execute at most ${DEFAULT_MAX_QUERY_ATTEMPTS} SQL queries for this question. The tool enforces this limit. Once it is reached, do not call execute_query again; answer using the evidence already collected and clearly state any limitation.`,
+        ...this.dialectInstructions(),
         ...this.responseInstructions(),
         ...(this.options.databaseContext?.content
           ? [
@@ -209,6 +210,24 @@ export class Agent {
       toolCalls: result.toolCalls ?? 0,
       raw: result.raw,
     };
+  }
+
+  private dialectInstructions(): string[] {
+    const common =
+      'If an execute_query result has truncated: true, more rows exist than were returned. Do not present counts, sums, or "all of" statements computed from it as complete; aggregate in SQL instead or say the result is partial.';
+
+    if (this.context.database.dialect === 'postgres') {
+      return [
+        'The database is PostgreSQL. Use PostgreSQL syntax (LIMIT, ILIKE, ::casts, date_trunc, etc.).',
+        'Use table names exactly as list_tables returns them (schema-qualified when shown). Wrap identifiers containing capitals, spaces or special characters in double quotes; use single quotes only for string values.',
+        common,
+      ];
+    }
+
+    return [
+      'The database is MySQL/MariaDB. Use MySQL syntax and wrap identifiers that need quoting in backticks.',
+      common,
+    ];
   }
 
   private responseInstructions(): string[] {

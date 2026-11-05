@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 import { loadConfig, type AppConfig } from '../config/config.js';
-import { MySqlAdapter } from '../database/mysql/adapter.js';
+import { createDatabaseAdapter, isSupportedDriver } from '../database/factory.js';
 import { createAiProvider } from '../ai/factory.js';
 import type { AiProvider } from '../ai/provider.js';
 import { loadDatabaseContext } from '../context/db-context.js';
@@ -30,14 +30,7 @@ const DEFAULT_PROVIDER_TIMEOUT_MS = 20_000;
 
 const defaultDependencies: ValidateDependencies = {
   loadConfig: () => loadConfig(),
-  createDatabase: (config) =>
-    new MySqlAdapter({
-      host: config.host,
-      port: config.port,
-      database: config.name,
-      user: config.user,
-      password: config.password,
-    }),
+  createDatabase: (config) => createDatabaseAdapter(config),
   createProvider: createAiProvider,
   loadContext: () => loadDatabaseContext(),
 };
@@ -112,11 +105,11 @@ export async function runValidationChecks(
   if (!config.database.name) missing.push('DB_NAME');
   if (!config.database.user) missing.push('DB_USER');
 
-  if (config.database.driver !== 'mysql') {
+  if (!isSupportedDriver(config.database.driver)) {
     add(
       'Database connection',
       'fail',
-      `DB_DRIVER=${config.database.driver} is not implemented yet. Only mysql is supported.`,
+      `DB_DRIVER=${config.database.driver} is not implemented yet. Supported: mysql, postgres.`,
     );
     add('Foreign keys', 'skip', 'Skipped: no database connection.');
   } else if (missing.length > 0) {

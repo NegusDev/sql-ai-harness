@@ -34,7 +34,8 @@ export class SchemaCache {
   }
 
   async describeTable(database: DatabaseAdapter, table: string): Promise<TableSchema> {
-    const key = table.toLowerCase();
+    // PostgreSQL names are case-sensitive when quoted; MySQL table names are not portable anyway.
+    const key = database.dialect === 'postgres' ? table : table.toLowerCase();
     const cached = this.get(this.tableSchemas.get(key));
     if (cached) return cached;
 

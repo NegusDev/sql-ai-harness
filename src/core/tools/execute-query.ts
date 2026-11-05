@@ -9,7 +9,7 @@ export async function executeQuery(
   input: ExecuteQueryInput,
   context: ToolContext,
 ): Promise<SqlToolResult> {
-  const validation = validateSql(input.sql, context.safety);
+  const validation = validateSql(input.sql, context.safety, context.database.dialect);
 
   if (!validation.valid || !validation.sql) {
     return {

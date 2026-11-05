@@ -2,7 +2,7 @@
 
 import { Agent } from './core/agent/index.js';
 import { loadConfig } from './config/config.js';
-import { MySqlAdapter } from './database/index.js';
+import { createDatabaseAdapter } from './database/index.js';
 import { createAiProvider } from './ai/factory.js';
 import { CliAgentObserver } from './cli-observer.js';
 import { SchemaCache } from './schema/cache.js';
@@ -87,17 +87,7 @@ async function main(): Promise<void> {
 
   const config = loadConfig();
 
-  if (config.database.driver !== 'mysql') {
-    throw new Error(`Database driver "${config.database.driver}" is not implemented yet. M4 currently supports MySQL.`);
-  }
-
-  const database = new MySqlAdapter({
-    host: config.database.host,
-    port: config.database.port,
-    database: config.database.name,
-    user: config.database.user,
-    password: config.database.password,
-  });
+  const database = createDatabaseAdapter(config.database);
 
   const provider = createAiProvider(config.ai);
   const databaseContext = await loadDatabaseContext();
@@ -124,7 +114,7 @@ async function main(): Promise<void> {
       console.error(`\n[agent] ${result.steps} step${result.steps === 1 ? '' : 's'}, ${result.toolCalls} tool call${result.toolCalls === 1 ? '' : 's'}`);
     }
   } finally {
-    await database.close();
+    await database.close?.();
   }
 }
 

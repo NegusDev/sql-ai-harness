@@ -3,7 +3,7 @@ import { stdin, stdout } from 'node:process';
 import { readFile, writeFile, access, chmod } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { resolve } from 'node:path';
-import { MySqlAdapter } from '../database/mysql/adapter.js';
+import { createDatabaseAdapter } from '../database/factory.js';
 import type { AiProviderName } from '../config/config.js';
 
 const PROVIDERS: Array<{ value: AiProviderName; label: string; model: string }> = [
@@ -132,6 +132,7 @@ export async function runInit(args: string[] = []): Promise<void> {
     DB_DRIVER: 'mysql',
     DB_HOST: '127.0.0.1',
     DB_PORT: '3306',
+    DB_SSL: 'disable',
     DB_NAME: '',
     DB_USER: '',
     DB_PASSWORD: '',
@@ -152,13 +153,23 @@ export async function runInit(args: string[] = []): Promise<void> {
 
   try {
     stdout.write('\nSQL AI Harness — Setup\n\nDatabase\n');
-    values.DB_HOST = await askValue(rl, 'MySQL/MariaDB host', '127.0.0.1');
-    values.DB_PORT = await askValue(rl, 'Port', '3306');
+    values.DB_DRIVER = await askChoice(rl, 'Database type', [
+      { value: 'mysql', label: 'MySQL / MariaDB' },
+      { value: 'postgres', label: 'PostgreSQL' },
+    ]);
+    const isPostgres = values.DB_DRIVER === 'postgres';
+    values.DB_HOST = await askValue(rl, `${isPostgres ? 'PostgreSQL' : 'MySQL/MariaDB'} host`, '127.0.0.1');
+    values.DB_PORT = await askValue(rl, 'Port', isPostgres ? '5432' : '3306');
     if (!/^\d+$/.test(values.DB_PORT) || Number(values.DB_PORT) < 1 || Number(values.DB_PORT) > 65535) {
       throw new Error('Database port must be a number between 1 and 65535.');
     }
     values.DB_NAME = required(await askValue(rl, 'Database name', ''), 'Database name');
     values.DB_USER = required(await askValue(rl, 'Database username', ''), 'Database username');
+    values.DB_SSL = await askChoice(rl, 'Encrypt the database connection (TLS)?', [
+      { value: 'disable', label: 'No (local or trusted network)' },
+      { value: 'require', label: 'Yes, without verifying the certificate' },
+      { value: 'verify-full', label: 'Yes, and verify the certificate' },
+    ]);
     rl.close();
     values.DB_PASSWORD = await askSecret('Database password');
     rl = createInterface({ input: stdin, output: stdout });
@@ -196,16 +207,17 @@ export async function runInit(args: string[] = []): Promise<void> {
       throw new Error('Schema cache TTL must be at least 1 minute.');
     }
 
-    stdout.write('\nTesting MySQL/MariaDB connection...\n');
-    const database = new MySqlAdapter({
-      host: values.DB_HOST!, port: Number(values.DB_PORT), database: values.DB_NAME!,
-      user: values.DB_USER!, password: values.DB_PASSWORD!,
+    stdout.write(`\nTesting ${isPostgres ? 'PostgreSQL' : 'MySQL/MariaDB'} connection...\n`);
+    const database = createDatabaseAdapter({
+      driver: values.DB_DRIVER as 'mysql' | 'postgres', host: values.DB_HOST!, port: Number(values.DB_PORT),
+      name: values.DB_NAME!, user: values.DB_USER!, password: values.DB_PASSWORD!,
+      ssl: values.DB_SSL as 'disable' | 'require' | 'verify-full',
     });
     try {
       const tables = await database.listTables();
       stdout.write(`✓ Database connection successful (${tables.length} tables discovered).\n`);
     } finally {
-      await database.close();
+      await database.close?.();
     }
 
     // Keep only the selected provider's secret key in the generated configuration.

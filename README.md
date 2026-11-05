@@ -2,7 +2,7 @@
 
 **Open-source, privacy-first, self-hostable Text-to-SQL for your existing relational database.**
 
-Ask questions in plain language about a MySQL or MariaDB database you already have. SQL AI Harness discovers the schema, gives an AI agent tools to inspect and query it, enforces execution limits, and returns an answer. No new schema, no model trained for your app, no hosted service.
+Ask questions in plain language about a MySQL, MariaDB, or PostgreSQL database you already have. SQL AI Harness discovers the schema, gives an AI agent tools to inspect and query it, enforces execution limits, and returns an answer. No new schema, no model trained for your app, no hosted service.
 
 Bring your own model. Run it yourself.
 
@@ -53,10 +53,10 @@ It is a reusable layer between an AI provider and an existing relational databas
 ## Requirements
 
 - **Node.js 22 or later**
-- A **MySQL or MariaDB** database, and an account with read access to the tables the agent should see
+- A **MySQL, MariaDB, or PostgreSQL** database, and an account with read access to the tables the agent should see
 - Credentials and a model ID for one supported AI provider (or a reachable Ollama endpoint)
 
-> PostgreSQL, SQLite, a hosted HTTP API, and SDKs for languages other than TypeScript are **not** part of this release. The SDK defines a `DatabaseAdapter` interface as the extension point; only the MySQL adapter ships today.
+> SQLite, a hosted HTTP API, and SDKs for languages other than TypeScript are **not** part of this release. The SDK defines a `DatabaseAdapter` interface as the extension point; MySQL/MariaDB and PostgreSQL adapters ship today.
 
 ## Quickstart
 
@@ -70,7 +70,7 @@ npx sql-ai-harness init
 
 The wizard asks for:
 
-- MySQL/MariaDB host, port, database, username, and password
+- Database type (MySQL/MariaDB or PostgreSQL), host, port, database, username, and password
 - AI provider and exact model ID
 - An API key (hosted providers) or a base URL (Ollama)
 - Agent step limit, SQL row limit, and schema-cache lifetime
@@ -166,9 +166,10 @@ Model availability, pricing, quotas, and API behavior are controlled by each pro
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `DB_DRIVER` | Adapter identifier | `mysql` |
+| `DB_DRIVER` | `mysql` (also MariaDB) or `postgres` | `mysql` |
 | `DB_HOST` | Hostname or IP | `127.0.0.1` |
-| `DB_PORT` | Port | `3306` |
+| `DB_PORT` | Port | `3306` for mysql, `5432` for postgres |
+| `DB_SSL` | `disable`, `require` (encrypt, don't verify the certificate), or `verify-full` (encrypt and verify; use `NODE_EXTRA_CA_CERTS` for a private CA) | `disable` |
 | `DB_NAME` | Database name | *required* |
 | `DB_USER` | Username (**use a restricted read-only account**) | *required* |
 | `DB_PASSWORD` | Password (set privately) | *required* |
@@ -213,20 +214,16 @@ The package exports its public SDK from `sql-ai-harness`. Import from the packag
 ```ts
 import {
   Agent,
-  MySqlAdapter,
   createAiProvider,
+  createDatabaseAdapter,
   loadConfig,
 } from "sql-ai-harness";
 
 const config = loadConfig();
 
-const database = new MySqlAdapter({
-  host: config.database.host,
-  port: config.database.port,
-  database: config.database.name,
-  user: config.database.user,
-  password: config.database.password,
-});
+// Picks MySqlAdapter or PostgresAdapter from DB_DRIVER.
+// You can also construct MySqlAdapter / PostgresAdapter directly.
+const database = createDatabaseAdapter(config.database);
 
 const provider = createAiProvider(config.ai);
 
@@ -273,7 +270,9 @@ SQL AI Harness applies safeguards and execution limits, but **it is not a comple
 6. **Verify important answers** independently before using them for financial, operational, or compliance decisions.
 7. **Test on a non-production database first**, such as a disposable or sanitized snapshot.
 
-The SQL validator tokenizes each query, so keywords inside string literals, quoted identifiers, and comments are ignored. It accepts a single read-oriented statement and rejects writes, locking reads, `INTO OUTFILE`, executable comments, and functions such as `SLEEP()` and `LOAD_FILE()`. It assumes MySQL's default `sql_mode` and cannot recognize user-defined functions with side effects, which is another reason to use a read-only database account.
+The SQL validator tokenizes each query, so keywords inside string literals, quoted identifiers, and comments are ignored. It accepts a single read-oriented statement and rejects writes, locking reads, `INTO OUTFILE`, executable comments, and functions such as `SLEEP()` and `LOAD_FILE()`. It uses the lexical rules of the configured database (for example PostgreSQL's dollar-quoted strings and nested comments, or MySQL's `#` comments and backslash escapes), and it assumes MySQL's default `sql_mode`. It cannot recognize user-defined functions with side effects, which is another reason to use a read-only database account.
+
+On PostgreSQL the adapter adds server-side protection that does not depend on the validator: every statement runs inside a `READ ONLY` transaction that is always rolled back, with a per-query `statement_timeout`, over the extended protocol (so the server itself refuses multiple statements), and rows are streamed through a cursor so oversized results are never fully loaded. Results that hit the row or size limit are flagged `truncated`, and the agent is told not to present them as complete.
 
 Successful SQL execution does not guarantee a correct answer. SQL attempts are capped per question, but correctness cannot be guaranteed for arbitrary questions or business-specific joins.
 
@@ -282,7 +281,7 @@ Successful SQL execution does not guarantee a correct answer. SQL attempts are c
 | Database | Status |
 |---|---|
 | MySQL / MariaDB | Available |
-| PostgreSQL | Planned (the `DatabaseAdapter` extension point is in place) |
+| PostgreSQL | Available (tables, partitioned tables, and schemas; views are not listed yet) |
 | SQLite | Planned |
 | Others | Implement `DatabaseAdapter` |
 
@@ -336,7 +335,7 @@ src/
   context/        Optional business context loading (sql-ai.md)
   core/agent/     Agent loop and observability interfaces
   core/tools/     Schema and SQL tools exposed to the agent
-  database/       Database adapter interface and MySQL implementation
+  database/       Database adapter interface, MySQL and PostgreSQL implementations
   safety/         SQL validation, policy checks, execution limits
   schema/         In-memory schema metadata cache
   cli.ts          CLI entry point
@@ -353,6 +352,8 @@ tests/            Automated tests
 - Confirm the database accepts connections from the machine running the harness.
 - Confirm the account can inspect tables and read the required data.
 - Check firewall rules and database allowlists.
+- Hosted PostgreSQL (Neon, Supabase, RDS, ...) usually requires TLS: set `DB_SSL=require`. Poolers such as pgbouncer in transaction mode work, because each query is a self-contained transaction.
+- PostgreSQL tables outside `public` appear as `schema.table` in `list_tables`; the agent is told to use names exactly as listed.
 
 ### Provider authentication or model errors
 
