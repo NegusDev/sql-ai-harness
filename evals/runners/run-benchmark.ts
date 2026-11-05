@@ -1,5 +1,6 @@
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import 'dotenv/config';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -56,6 +57,14 @@ interface CaseResult {
   exitCode: number | null;
   executionSuccess: boolean;
   timedOut: boolean;
+  /**
+   * True when the run failed because the model provider or network failed
+   * (rate limit, overload, 5xx, connection reset), not because the harness
+   * answered wrongly. Such cases are excluded from accuracy.
+   */
+  infraError: boolean;
+  /** How many times the CLI was run for this case (retries are infra-only). */
+  attempts: number;
   durationMs: number;
 
   toolCalls: number | null;
@@ -612,6 +621,39 @@ async function terminateChild(
   });
 }
 
+const INFRA_ERROR_PATTERN =
+  /AI_APICallError|AI_RetryError|high demand|overloaded|rate.?limit|too many requests|quota|service unavailable|bad gateway|gateway time-?out|\b(?:429|500|502|503|504|529)\b|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|socket hang up/i;
+
+/** Only the final error line(s): tool output earlier in stderr may contain digits like 503. */
+function isInfraFailure(exitCode: number | null, timedOut: boolean, stderr: string): boolean {
+  if (timedOut || exitCode === 0) return false;
+  const tail = stderr.trim().split(/\r?\n/).slice(-6).join('\n');
+  return /^Error:/m.test(tail) && INFRA_ERROR_PATTERN.test(tail);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runCaseWithRetries(
+  testCase: BenchmarkCase,
+  timeoutMs: number,
+  retries: number,
+): Promise<CaseResult> {
+  let result = await runCase(testCase, timeoutMs);
+
+  for (let attempt = 1; attempt <= retries && result.infraError; attempt += 1) {
+    process.stdout.write(`infra error, retry ${attempt}/${retries}... `);
+    await sleep(5_000 * attempt);
+    const next = await runCase(testCase, timeoutMs);
+    next.attempts = result.attempts + 1;
+    next.notes.unshift(`Retried after provider/network error (attempt ${next.attempts}).`);
+    result = next;
+  }
+
+  return result;
+}
+
 async function runCase(
   testCase: BenchmarkCase,
   timeoutMs: number,
@@ -671,8 +713,20 @@ async function runCase(
   const databaseExecutions = countDatabaseExecutions(events);
   const dangerousAttempts = countDangerousSqlAttempts(events, stderr);
 
-  const equivalence = evaluateEquivalence(testCase, events);
-  const correctness = evaluateCorrectness(testCase, stdout);
+  const infraError = isInfraFailure(exitCode, timedOut, stderr);
+  const notScored = (reason: string): CheckResult => ({
+    status: 'not-evaluated',
+    method: 'infra-error',
+    reason,
+  });
+  const infraReason = 'Provider or network failure; case not scored.';
+
+  const equivalence = infraError
+    ? notScored(infraReason)
+    : evaluateEquivalence(testCase, events);
+  const correctness = infraError
+    ? notScored(infraReason)
+    : evaluateCorrectness(testCase, stdout);
   const safety = evaluateSafety(
     testCase,
     events,
@@ -683,6 +737,7 @@ async function runCase(
   const notes: string[] = [];
   if (timedOut) notes.push(`Timed out after ${timeoutMs} ms.`);
   if (spawnError) notes.push(`Failed to start CLI: ${spawnError}`);
+  if (infraError) notes.push('Provider or network error; excluded from accuracy.');
 
   return {
     id: testCase.id,
@@ -691,6 +746,8 @@ async function runCase(
     exitCode,
     executionSuccess: exitCode === 0 && !timedOut && spawnError === null,
     timedOut,
+    infraError,
+    attempts: 1,
     durationMs: Date.now() - startedAt,
     toolCalls,
     sqlAttempts,
@@ -780,6 +837,7 @@ function markdownReport(
     ? Math.round(results.reduce((sum, result) => sum + result.durationMs, 0) / total)
     : 0;
 
+  const infraErrors = results.filter((result) => result.infraError).length;
   const equivalence = summarizeCheck(results, 'resultEquivalence');
   const correctness = summarizeCheck(results, 'correctness');
   const refusal = summarizeCheck(results, 'refusal');
@@ -813,6 +871,8 @@ function markdownReport(
     `# SQL AI Harness Benchmark: ${tag}`,
     '',
     `- Dataset: \`${datasetName}\``,
+    `- Model: ${process.env.AI_PROVIDER ?? 'openrouter'} / ${process.env.AI_MODEL ?? 'unknown'}`,
+    `- Database: ${process.env.DB_NAME ?? 'unknown'}`,
     `- Generated: ${new Date().toISOString()}`,
     '',
     '## Summary',
@@ -820,6 +880,8 @@ function markdownReport(
     '| Metric | Result |',
     '|---|---:|',
     `| Cases | ${total} |`,
+    `| Provider/network errors (not scored) | ${infraErrors}${infraErrors ? ' — re-run these; accuracy below excludes them' : ''} |`,
+    `| Scored cases | ${total - infraErrors} |`,
     `| Successful CLI exits | ${succeeded}/${total} |`,
     `| Average latency | ${avgLatency} ms |`,
     `| Average tool calls | ${avgTools} |`,
@@ -881,10 +943,19 @@ function markdownReport(
   return lines.join('\n');
 }
 
+function gitCommit(): string | null {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return null;
+  }
+}
+
 async function main(): Promise<void> {
   const tag = arg('--tag', 'benchmark');
   const limit = nonNegativeInt(arg('--limit', '0'), '--limit');
   const timeoutMs = positiveInt(arg('--timeout-ms', '90000'), '--timeout-ms');
+  const retries = nonNegativeInt(arg('--retries', '2'), '--retries');
   const datasetPath = path.resolve(
     arg('--dataset', 'evals/datasets/forex-management/questions.json'),
   );
@@ -896,7 +967,7 @@ async function main(): Promise<void> {
   const results: CaseResult[] = [];
 
   console.log(
-    `Running ${selected.length} cases (tag=${tag}, dataset=${datasetName}, timeout=${timeoutMs}ms)`,
+    `Running ${selected.length} cases (tag=${tag}, dataset=${datasetName}, timeout=${timeoutMs}ms, retries=${retries})`,
   );
 
   for (const testCase of selected) {
@@ -905,7 +976,7 @@ async function main(): Promise<void> {
     );
 
     try {
-      const result = await runCase(testCase, timeoutMs);
+      const result = await runCaseWithRetries(testCase, timeoutMs, retries);
       results.push(result);
 
       console.log(
@@ -923,6 +994,8 @@ async function main(): Promise<void> {
         exitCode: null,
         executionSuccess: false,
         timedOut: false,
+        infraError: false,
+        attempts: 1,
         durationMs: 0,
         toolCalls: null,
         sqlAttempts: null,
@@ -963,15 +1036,18 @@ async function main(): Promise<void> {
   const report = {
     tag,
     createdAt: new Date().toISOString(),
-    gitCommit: process.env.GIT_COMMIT ?? null,
+    gitCommit: process.env.GIT_COMMIT ?? gitCommit(),
+    provider: process.env.AI_PROVIDER ?? 'openrouter',
     model: process.env.AI_MODEL ?? null,
     dataset: datasetName,
     datasetPath,
     configuration: {
       databaseDriver: process.env.DB_DRIVER ?? 'mysql',
-      maxRows: process.env.SQL_MAX_ROWS ?? null,
-      maxSteps: process.env.AGENT_MAX_STEPS ?? null,
+      databaseName: process.env.DB_NAME ?? null,
+      maxRows: process.env.SQL_MAX_ROWS ?? '500 (default)',
+      maxSteps: process.env.AGENT_MAX_STEPS ?? '8 (default)',
       timeoutMs,
+      retries,
       structuredToolEvents: true,
     },
     methodology: {
