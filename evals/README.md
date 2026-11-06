@@ -42,6 +42,10 @@ pnpm eval -- --tag smoke --limit 3 --timeout-ms 90000
 
 The runner starts one fresh CLI process per question, so each question is isolated at the process level. It writes timestamped JSON and Markdown reports to `evals/reports/`. Keep reports from different tags rather than overwriting them.
 
+**Check the report header before trusting a run.** It records the provider, model, database name, commit, row and step limits. The expected answers match the seeded `sql_ai_eval` data only; if `Database` shows anything else, the numbers are meaningless.
+
+**Provider and network errors are not scored.** If the model provider fails (rate limit, "high demand", 5xx, connection reset), the runner retries that question up to `--retries` times (default 2, with backoff). A case that still fails is marked `infra-error`, reported separately, and excluded from accuracy. Re-run until "Provider/network errors" is 0 before quoting a score. A timeout is not treated as an infrastructure error and counts as a failure.
+
 ## 3. Score correctness and equivalence
 
 Each case contains a question, a reference SQL query, and expected rows for answerable questions. Run the reference SQL independently against the seeded database. Review the captured answer and trace in the JSON report, then fill `correctness` and `resultEquivalence` as `true` or `false` and add reviewer notes.
