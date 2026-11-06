@@ -177,3 +177,33 @@ describe('Agent query correctness safeguards', () => {
     expect(executedQueries).toBe(3);
   });
 });
+
+describe('Agent without a final answer', () => {
+  class SilentProvider {
+    readonly name = 'silent';
+    async generate(): Promise<ModelResponse> {
+      return { text: '   ', steps: 4, toolCalls: 4 };
+    }
+  }
+
+  it('reports an incomplete result instead of an empty answer', async () => {
+    const result = await new Agent(new SilentProvider(), context, { maxSteps: 4 }).ask('anything');
+
+    expect(result.incomplete).toBe(true);
+    expect(result.text).toContain('without an answer after 4 steps');
+    expect(result.text).toContain('AGENT_MAX_STEPS');
+  });
+
+  it('does not flag normal answers', async () => {
+    const result = await new Agent(new FakeProvider(), context).ask('anything');
+    expect(result.incomplete).toBeUndefined();
+  });
+
+  it('tells the model about its step budget and that it is read-only', async () => {
+    const provider = new FakeProvider();
+    await new Agent(provider, context, { maxSteps: 6 }).ask('anything');
+
+    expect(provider.lastRequest?.system).toContain('budget of 6 steps');
+    expect(provider.lastRequest?.system).toContain('read-only');
+  });
+});

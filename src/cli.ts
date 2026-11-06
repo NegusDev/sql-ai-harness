@@ -109,7 +109,12 @@ async function main(): Promise<void> {
 
   try {
     const result = await agent.ask(question);
-    console.log('\n' + result.text);
+    if (result.incomplete) {
+      console.error(`\nError: ${result.text}`);
+      process.exitCode = 1;
+    } else {
+      console.log('\n' + result.text);
+    }
     if (mode === 'debug') {
       console.error(`\n[agent] ${result.steps} step${result.steps === 1 ? '' : 's'}, ${result.toolCalls} tool call${result.toolCalls === 1 ? '' : 's'}`);
     }
