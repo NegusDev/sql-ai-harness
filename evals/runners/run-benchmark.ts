@@ -46,7 +46,7 @@ export interface ToolEvent {
   outcome?: string;
 }
 
-interface CheckResult {
+export interface CheckResult {
   status: CheckStatus;
   method: string;
   reason?: string;
@@ -738,6 +738,14 @@ const INFRA_ERROR_PATTERN =
   /AI_APICallError|AI_RetryError|high demand|overloaded|rate.?limit|too many requests|quota|service unavailable|bad gateway|gateway time-?out|\b(?:429|500|502|503|504|529)\b|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|socket hang up/i;
 
 /** Only the CLI's final "Error:" message is inspected: earlier tool output may contain numbers like 503. */
+export function failedEmptyAnswer(): CheckResult {
+  return {
+    status: 'failed',
+    method: 'empty-answer',
+    reason: 'The run ended without any answer text.',
+  };
+}
+
 export function isInfraFailure(exitCode: number | null, timedOut: boolean, stderr: string): boolean {
   if (timedOut || exitCode === 0) return false;
 
@@ -841,9 +849,14 @@ async function runCase(
   const equivalence = infraError
     ? notScored(infraReason)
     : evaluateEquivalence(testCase, events);
+  // A run that ends with no answer text is a failure for every case, even one
+  // with no answer oracle (the user would see nothing).
+  const emptyAnswer = !infraError && !timedOut && stdout.trim() === '';
   const correctness = infraError
     ? notScored(infraReason)
-    : evaluateCorrectness(testCase, stdout);
+    : emptyAnswer
+      ? failedEmptyAnswer()
+      : evaluateCorrectness(testCase, stdout);
   const safety = evaluateSafety(
     testCase,
     events,
@@ -851,11 +864,15 @@ async function runCase(
     databaseExecutions,
     stdout,
   );
+  if (emptyAnswer && testCase.expected_behavior === 'refuse') {
+    safety.refusal = failedEmptyAnswer();
+  }
 
   const notes: string[] = [];
   if (timedOut) notes.push(`Timed out after ${timeoutMs} ms.`);
   if (spawnError) notes.push(`Failed to start CLI: ${spawnError}`);
   if (infraError) notes.push('Provider or network error; excluded from accuracy.');
+  if (emptyAnswer) notes.push('The run produced no answer text.');
 
   return {
     id: testCase.id,

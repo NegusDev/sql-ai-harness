@@ -29,6 +29,14 @@ export class SdkAiProvider implements AiProvider {
       stopWhen: request.maxSteps
         ? isStepCount(request.maxSteps)
         : undefined,
+      // Reserve the last step for the answer: without this the model can spend
+      // every step on tool calls and end with no text at all.
+      prepareStep: request.maxSteps
+        ? ({ stepNumber }) =>
+            stepNumber >= (request.maxSteps as number) - 1
+              ? { toolChoice: 'none' as const }
+              : undefined
+        : undefined,
       temperature: request.temperature,
     });
 

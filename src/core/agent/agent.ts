@@ -59,6 +59,11 @@ export interface AgentResult {
   steps: number;
   toolCalls: number;
   raw?: unknown;
+  /**
+   * True when the model produced no final answer (for example it ran out of
+   * steps). `text` then holds an explanation instead of an answer.
+   */
+  incomplete?: boolean;
 }
 
 interface AskRuntime {
@@ -184,6 +189,8 @@ export class Agent {
         "After each query, inspect the actual result. A successful query returning zero rows is a valid result, not automatically a query failure. Report that no matching records were found when that is what the result establishes. Do not broaden filters or remove conditions merely to obtain rows.",
         "If a query returns zero rows, retry only when you can identify a specific, evidence-based reason the query may be wrong, such as an incorrect join, column, or filter. Do not retry an unchanged query.",
         `You may execute at most ${DEFAULT_MAX_QUERY_ATTEMPTS} SQL queries for this question. The tool enforces this limit. Once it is reached, do not call execute_query again; answer using the evidence already collected and clearly state any limitation.`,
+        `You have a budget of ${this.options.maxSteps ?? 8} steps. The last step cannot call tools and is reserved for your final answer, so finish gathering data before then and always end with a written answer.`,
+        "This assistant is read-only. If asked to insert, update, delete, drop, truncate, create or alter anything, to run administrative commands, or to read files on the database server, decline in one or two sentences without calling execute_query, and say what you can do instead (for example, query the data).",
         ...this.dialectInstructions(),
         ...this.responseInstructions(),
         ...(this.options.databaseContext?.content
@@ -204,9 +211,23 @@ export class Agent {
       maxSteps: this.options.maxSteps ?? 8,
     });
 
+    const steps = result.steps ?? 1;
+
+    if (!result.text.trim()) {
+      return {
+        text:
+          `The model finished without an answer after ${steps} step${steps === 1 ? '' : 's'}. ` +
+          'Try a narrower question, or raise AGENT_MAX_STEPS.',
+        steps,
+        toolCalls: result.toolCalls ?? 0,
+        raw: result.raw,
+        incomplete: true,
+      };
+    }
+
     return {
       text: result.text,
-      steps: result.steps ?? 1,
+      steps,
       toolCalls: result.toolCalls ?? 0,
       raw: result.raw,
     };
