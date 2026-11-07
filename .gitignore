@@ -1,6 +1,6 @@
 .env
 node_modules
 sql-ai.md
-reports/
+evals/reports/*.json
 /dist/
 *.tgz
