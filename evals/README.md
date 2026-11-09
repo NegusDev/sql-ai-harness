@@ -44,6 +44,12 @@ The runner starts one fresh CLI process per question, so each question is isolat
 
 **Check the report header before trusting a run.** It records the provider, model, database name, commit, row and step limits. The expected answers match the seeded `sql_ai_eval` data only; if `Database` shows anything else, the numbers are meaningless.
 
+**Repeating a run.** Model output varies from run to run, so one run can't tell a real difference from noise. `--repeat N` runs the whole selection N times, writes one report per run (`<tag>_r1`, `<tag>_r2`, ...) and a `<tag>-summary.md` with per-run totals and a list of cases whose verdict changed. Compare configurations (for example `AGENT_QUERY_PLAN=on` against `off`) with the same `--repeat`, model and `AGENT_MAX_STEPS`.
+
+**Timeouts.** `--timeout-ms` bounds each case. On timeout the runner stops the CLI's whole process group (the CLI runs under `pnpm`, so killing only the direct child would leave the real process running), so a hung case costs at most the timeout plus a few seconds.
+
+Every report header records the commit, model, database, `AGENT_MAX_STEPS`, whether the query plan was on, and the timeout and retry settings.
+
 **How answers are scored.** Each case sets `comparison_mode`:
 - `exact`: same rows and same column names.
 - `projected`: only the listed `expected_columns` are compared.
