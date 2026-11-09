@@ -41,6 +41,7 @@ describe('Agent', () => {
     expect(provider.lastRequest?.prompt).toBe('How many students are enrolled?');
     expect(provider.lastRequest?.tools).toBeDefined();
     expect(Object.keys(provider.lastRequest?.tools as object)).toEqual([
+      'submit_query_plan',
       'list_tables',
       'describe_table',
       'describe_tables',
@@ -112,9 +113,10 @@ describe('Agent query correctness safeguards', () => {
 
     expect(probe.results[0].success).toBe(false);
     expect(probe.results[0].error).toContain(
-      'global foreign-key discovery',
+      'No query plan has been submitted',
     );
   });
+
 
   it('caps SQL execution attempts at three and rejects unchanged retries', async () => {
     let executedQueries = 0;
@@ -122,6 +124,7 @@ describe('Agent query correctness safeguards', () => {
     const probe = {
       name: 'tool-probe',
       results: [] as Array<{ success: boolean; error?: string }>,
+
       async generate(request: ModelRequest): Promise<ModelResponse> {
         const tools = request.tools as Record<
           string,
@@ -132,9 +135,23 @@ describe('Agent query correctness safeguards', () => {
           }
         >;
 
+        // Submit the mandatory query plan first.
+        const submitPlan = tools.submit_query_plan.execute!;
+
+        const plan = await submitPlan({
+          objective: 'List users by ID',
+          tables: ['users'],
+          requiredFields: ['id'],
+          filters: [],
+          joins: [],
+        });
+
+        if (!plan.success) {
+          throw new Error('Query plan submission failed');
+        }
+
         const executeQuery = tools.execute_query.execute!;
 
-        // The agent has already completed global discovery.
         this.results.push(
           await executeQuery({ sql: 'SELECT id FROM users WHERE id = 1' }),
         );
@@ -157,7 +174,8 @@ describe('Agent query correctness safeguards', () => {
       database: {
         ...context.database,
         async executeQuery() {
-          executedQueries += 1;
+          executedQueries++;
+
           return {
             rows: [{ id: executedQueries }],
             rowCount: 1,
@@ -171,11 +189,14 @@ describe('Agent query correctness safeguards', () => {
 
     expect(probe.results.slice(0, 3).every((r) => r.success)).toBe(true);
     expect(probe.results[3].success).toBe(false);
+
     expect(probe.results[3].error).toContain(
       'Maximum of 3 SQL query attempts',
     );
+
     expect(executedQueries).toBe(3);
   });
+
 });
 
 describe('Agent without a final answer', () => {
