@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config/config.js';
 
-const base = { AI_PROVIDER: 'groq', AI_MODEL: 'm', GROQ_API_KEY: 'k' };
+const base = { AI_PROVIDER: 'deepseek', AI_MODEL: 'm', GROQ_API_KEY: 'k', DEEPSEEK_API_KEY: 'k' };
 
 describe('database config', () => {
   it('defaults to MySQL on 3306 without TLS', () => {
