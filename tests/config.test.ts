@@ -22,4 +22,8 @@ describe('database config', () => {
     expect(loadConfig({ ...base, DB_SSL: 'verify-full' }).database.ssl).toBe('verify-full');
     expect(() => loadConfig({ ...base, DB_SSL: 'yes' })).toThrow();
   });
+
+  it('requires DEEPSEEK_API_KEY for deepseek', () => {
+       expect(() => loadConfig({ AI_PROVIDER: 'deepseek', AI_MODEL: 'm' })).toThrow(/DEEPSEEK_API_KEY/);
+  });
 });

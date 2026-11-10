@@ -12,6 +12,7 @@ const PROVIDERS: Array<{ value: AiProviderName; label: string; model: string }> 
   { value: 'groq', label: 'Groq', model: '' },
   { value: 'cerebras', label: 'Cerebras', model: '' },
   { value: 'ollama', label: 'Ollama (local)', model: 'qwen2.5:7b' },
+  { value: 'deepseek', label: 'DeepSeek', model: '' },
 ];
 
 function required(value: string, label: string): string {
@@ -143,6 +144,7 @@ export async function runInit(args: string[] = []): Promise<void> {
     GOOGLE_GENERATIVE_AI_API_KEY: '',
     CEREBRAS_API_KEY: '',
     OLLAMA_BASE_URL: 'http://localhost:11434/v1',
+    DEEPSEEK_API_KEY: '',
     AI_SITE_NAME: 'SQL AI Harness',
     SQL_MAX_ROWS: '500',
     SQL_QUERY_TIMEOUT_MS: '10000',
@@ -185,6 +187,7 @@ export async function runInit(args: string[] = []): Promise<void> {
         google: 'GOOGLE_GENERATIVE_AI_API_KEY',
         groq: 'GROQ_API_KEY',
         cerebras: 'CEREBRAS_API_KEY',
+        deepseek: 'DEEPSEEK_API_KEY',
       };
       rl.close();
       values[keyNames[provider]] = required(await askSecret(`${providerInfo.label} API key`), 'API key');
@@ -223,9 +226,9 @@ export async function runInit(args: string[] = []): Promise<void> {
     // Keep only the selected provider's secret key in the generated configuration.
     const selectedKey = provider === 'ollama' ? undefined : ({
       openrouter: 'OPENROUTER_API_KEY', google: 'GOOGLE_GENERATIVE_AI_API_KEY',
-      groq: 'GROQ_API_KEY', cerebras: 'CEREBRAS_API_KEY',
+      groq: 'GROQ_API_KEY', cerebras: 'CEREBRAS_API_KEY', deepseek: 'DEEPSEEK_API_KEY',
     } as const)[provider];
-    for (const key of ['OPENROUTER_API_KEY', 'GROQ_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'CEREBRAS_API_KEY']) {
+    for (const key of ['OPENROUTER_API_KEY', 'GROQ_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'CEREBRAS_API_KEY', 'DEEPSEEK_API_KEY']) {
       if (key !== selectedKey) delete values[key];
     }
     await saveEnvFile(envPath, values);
