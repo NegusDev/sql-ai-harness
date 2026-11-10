@@ -113,7 +113,7 @@ describe('Agent query correctness safeguards', () => {
 
     expect(probe.results[0].success).toBe(false);
     expect(probe.results[0].error).toContain(
-      'No query plan has been submitted',
+      'No query plan has been accepted',
     );
   });
 
@@ -141,7 +141,7 @@ describe('Agent query correctness safeguards', () => {
         const plan = await submitPlan({
           objective: 'List users by ID',
           tables: ['users'],
-          requiredFields: ['id'],
+          fields: [{ table: 'users', column: 'id' }],
           filters: [],
           joins: [],
         });
@@ -173,6 +173,17 @@ describe('Agent query correctness safeguards', () => {
       ...context,
       database: {
         ...context.database,
+        async listTables() {
+          return [{ name: 'users' }];
+        },
+        async describeTable() {
+          return {
+            table: { name: 'users' },
+            columns: [
+              { name: 'id', dataType: 'int', nullable: false, isPrimaryKey: true, isAutoIncrement: true },
+            ],
+          };
+        },
         async executeQuery() {
           executedQueries++;
 

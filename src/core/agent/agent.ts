@@ -4,11 +4,20 @@ import { z } from "zod";
 import type { AiProvider } from "../../ai/provider.js";
 import type {
   DatabaseContext,
+  RelationshipInfo,
   SqlToolResult,
+  TableInfo,
   ToolContext,
 } from "../types/index.js";
 import { noopAgentObserver, type AgentObserver } from "./observability.js";
 import { getTools } from "../tools/registry.js";
+import {
+  checkSqlFollowsPlan,
+  queryPlanSchema,
+  validatePlan,
+  type SchemaFacts,
+  type StructuredQueryPlan,
+} from "./query-plan.js";
 
 const emptyInput = z.object({}).strict();
 
@@ -43,18 +52,6 @@ const schemas = {
   }),
 };
 
-const queryPlanSchema = z.object({
-  objective: z.string().trim().min(1).max(500),
-  tables: z.array(z.string().trim().min(1)).min(1).max(20),
-  requiredFields: z.array(z.string().trim().min(1)).max(30),
-  filters: z.array(z.string().trim().min(1)).max(30),
-  joins: z.array(z.string().trim().min(1)).max(20),
-  aggregations: z.array(z.string().trim().min(1)).max(20).optional(),
-  sorting: z.array(z.string().trim().min(1)).max(20).optional(),
-});
-
-export type QueryPlan = z.infer<typeof queryPlanSchema>;
-
 export type ResponseMode = "natural" | "technical" | "debug";
 
 export interface AgentOptions {
@@ -64,6 +61,19 @@ export interface AgentOptions {
 
   temperature?: number;
   observer?: AgentObserver;
+  /**
+   * Require a validated query plan before any SQL runs. Defaults to true.
+   * Turn off to compare against the plain tool loop.
+   */
+  requirePlan?: boolean;
+}
+
+export interface PlanStats {
+  submitted: number;
+  accepted: number;
+  rejected: number;
+  /** execute_query calls blocked because the SQL used tables outside the plan. */
+  sqlMismatches: number;
 }
 
 export interface AgentResult {
@@ -76,18 +86,24 @@ export interface AgentResult {
    * steps). `text` then holds an explanation instead of an answer.
    */
   incomplete?: boolean;
+  /** Plan counters for this question; absent when plans are switched off. */
+  plan?: PlanStats;
 }
 
 interface AskRuntime {
   relationshipsInspected: boolean;
-  queryPlan?: QueryPlan;
+  relationships: RelationshipInfo[];
+  queryPlan?: StructuredQueryPlan;
   planSubmissions: number;
+  planAccepted: number;
+  planRejected: number;
+  planSqlMismatches: number;
   queryAttempts: number;
   attemptedQueries: Set<string>;
 }
 
 const DEFAULT_MAX_QUERY_ATTEMPTS = 3;
-
+const MAX_PLAN_SUBMISSIONS = 4;
 
 /**
  * Normalize insignificant SQL formatting differences while preserving
@@ -165,7 +181,11 @@ export class Agent {
 
     const runtime: AskRuntime = {
       relationshipsInspected: false,
+      relationships: [],
       planSubmissions: 0,
+      planAccepted: 0,
+      planRejected: 0,
+      planSqlMismatches: 0,
       queryAttempts: 0,
       attemptedQueries: new Set<string>(),
     };
@@ -173,6 +193,9 @@ export class Agent {
     const relationshipResult = await this.discoverRelationships();
 
     runtime.relationshipsInspected = relationshipResult.success;
+    if (relationshipResult.success && Array.isArray(relationshipResult.data)) {
+      runtime.relationships = relationshipResult.data as RelationshipInfo[];
+    }
 
     const relationshipContext = relationshipResult.success
       ? [
@@ -198,10 +221,7 @@ export class Agent {
         "When several tables are relevant, prefer describe_tables to multiple separate describe_table calls.",
         "Global foreign-key discovery has already been performed before this model call. Use its results when planning joins. Call get_relationships again only when additional relationship information is needed.",
         ...relationshipContext,
-        "Before calling execute_query, you MUST call submit_query_plan with a concise structured plan. This is mandatory for every question that requires SQL, including simple queries.",
-        "Discover the relevant schema first, then submit the plan. The plan must identify the objective, relevant tables, required fields, filters, joins, and any aggregations or sorting.",
-        "The harness blocks execute_query until submit_query_plan has accepted a plan. If your approach materially changes after inspecting results or errors, submit an updated plan before executing the revised SQL.",
-        "Plan the query before writing SQL: identify the requested entities, relevant tables, output fields, filters, and any foreign-key path needed to connect those tables.",
+        ...this.planInstructions(),
         "When the question requires data from related tables, use explicit JOINs that follow the discovered foreign-key relationships. Do not guess join columns or substitute foreign-key IDs for the related entity’s descriptive fields.",
         "Choose result columns that answer the user’s wording. For requests to list or show people or named entities, prefer available human-readable fields such as names, usernames, or email addresses rather than returning only numeric IDs. Use IDs when the user asks for identifiers, counts, or when no descriptive fields exist.",
         "After each query, inspect the actual result. A successful query returning zero rows is a valid result, not automatically a query failure. Report that no matching records were found when that is what the result establishes. Do not broaden filters or remove conditions merely to obtain rows.",
@@ -240,6 +260,7 @@ export class Agent {
         toolCalls: result.toolCalls ?? 0,
         raw: result.raw,
         incomplete: true,
+        ...this.planStats(runtime),
       };
     }
 
@@ -248,7 +269,37 @@ export class Agent {
       steps,
       toolCalls: result.toolCalls ?? 0,
       raw: result.raw,
+      ...this.planStats(runtime),
     };
+  }
+
+  private get planRequired(): boolean {
+    return this.options.requirePlan !== false;
+  }
+
+  private planStats(runtime: AskRuntime): { plan?: PlanStats } {
+    if (!this.planRequired) return {};
+
+    return {
+      plan: {
+        submitted: runtime.planSubmissions,
+        accepted: runtime.planAccepted,
+        rejected: runtime.planRejected,
+        sqlMismatches: runtime.planSqlMismatches,
+      },
+    };
+  }
+
+  private planInstructions(): string[] {
+    if (!this.planRequired) return [];
+
+    return [
+      "Before calling execute_query, call submit_query_plan once schema discovery is done. Every question that needs SQL requires an accepted plan, including simple ones.",
+      "The plan lists the objective, the tables, the exact columns you will read ({table, column}), filters, join conditions ({left, right}), and any aggregations or sorting. The harness checks it against the real schema and rejects unknown tables or columns and tables that are not connected by joins.",
+      "Your SQL may only read tables named in the accepted plan. If you need a different table, or your approach changes after inspecting results or errors, submit an updated plan first.",
+      `You may submit at most ${MAX_PLAN_SUBMISSIONS} plans for this question. Fix the problems a rejection reports rather than resubmitting unchanged.`,
+      "Plan the query before writing SQL: identify the requested entities, output fields, filters, and the foreign-key path that connects the tables.",
+    ];
   }
 
   private dialectInstructions(): string[] {
@@ -294,24 +345,21 @@ export class Agent {
     }
   }
 
-    private buildTools(runtime: AskRuntime): ToolSet {
-      const registered = getTools();
-      const toolSet: ToolSet = {};
-      const observer = this.options.observer ?? noopAgentObserver;
+  private buildTools(runtime: AskRuntime): ToolSet {
+    const registered = getTools();
+    const toolSet: ToolSet = {};
+    const observer = this.options.observer ?? noopAgentObserver;
 
-      if (
-        registered.some(
-          (tool) => String(tool.name) === "submit_query_plan",
-        )
-      ) {
-        throw new Error(
-          'Tool name collision: "submit_query_plan" is reserved by the agent.',
-        );
-      }
+    if (registered.some((tool) => String(tool.name) === "submit_query_plan")) {
+      throw new Error(
+        'Tool name collision: "submit_query_plan" is reserved by the agent.',
+      );
+    }
 
+    if (this.planRequired) {
       toolSet.submit_query_plan = dynamicTool({
         description:
-          "Submit the structured query plan after schema discovery and before executing SQL. Required before every execute_query call. Submit an updated plan if the query approach materially changes.",
+          "Submit the structured query plan after schema discovery and before executing SQL. The plan is checked against the real schema. Required before execute_query; submit an updated plan if the tables or approach change.",
         inputSchema: queryPlanSchema,
         execute: async (input) => {
           const startedAt = performance.now();
@@ -322,187 +370,249 @@ export class Agent {
             input,
           });
 
-          try {
-            const parsed = queryPlanSchema.safeParse(input);
-            if (!parsed.success) {
-              const message = parsed.error.issues
-                .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-                .join("; ");
-
-              observer.onToolEvent({
-                type: "tool-end",
-                name: "submit_query_plan",
-                input,
-                success: false,
-                durationMs: Math.round(performance.now() - startedAt),
-                error: message,
-              });
-
-              return { success: false, error: message };
-            }
-
-            runtime.queryPlan = parsed.data;
-            runtime.planSubmissions += 1;
-
-            const result = {
-              success: true,
-              data: {
-                accepted: true,
-                submission: runtime.planSubmissions,
-                plan: runtime.queryPlan,
-              },
-            };
-
+          const finish = (
+            result: { success: boolean; error?: string; data?: unknown },
+          ) => {
             observer.onToolEvent({
               type: "tool-end",
               name: "submit_query_plan",
               input,
-              success: true,
+              success: result.success,
               durationMs: Math.round(performance.now() - startedAt),
-              data: result.data,
+              data: result.success ? result.data : undefined,
+              error: result.success ? undefined : result.error,
+            });
+            return result;
+          };
+
+          if (runtime.planSubmissions >= MAX_PLAN_SUBMISSIONS) {
+            return finish({
+              success: false,
+              error: `Maximum of ${MAX_PLAN_SUBMISSIONS} plan submissions reached. ${
+                runtime.queryPlan
+                  ? "Continue with the last accepted plan, or answer with the evidence you have."
+                  : "No plan was accepted, so SQL cannot run. Answer with what you know and state the limitation."
+              }`,
+            });
+          }
+
+          runtime.planSubmissions += 1;
+
+          const parsed = queryPlanSchema.safeParse(input);
+          if (!parsed.success) {
+            runtime.planRejected += 1;
+            return finish({
+              success: false,
+              error: parsed.error.issues
+                .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+                .join("; "),
+            });
+          }
+
+          try {
+            const facts = await this.loadSchemaFacts(runtime);
+            const validation = await validatePlan(parsed.data, facts);
+
+            if (!validation.valid) {
+              runtime.planRejected += 1;
+              return finish({
+                success: false,
+                error: `Plan rejected: ${validation.errors.join(" ")} Fix these and call submit_query_plan again.`,
+              });
+            }
+
+            runtime.queryPlan = parsed.data;
+            runtime.planAccepted += 1;
+
+            return finish({
+              success: true,
+              data: {
+                accepted: true,
+                submission: runtime.planSubmissions,
+                plan: parsed.data,
+                ...(validation.warnings.length > 0
+                  ? { warnings: validation.warnings }
+                  : {}),
+              },
+            });
+          } catch (error) {
+            runtime.planRejected += 1;
+            return finish({
+              success: false,
+              error: `Plan could not be checked: ${error instanceof Error ? error.message : String(error)}`,
+            });
+          }
+        },
+      });
+    }
+
+    for (const registeredTool of registered) {
+      const schema = schemas[registeredTool.name];
+      if (!schema) {
+        throw new Error(
+          `No input schema is defined for registered tool "${registeredTool.name}".`,
+        );
+      }
+
+      toolSet[registeredTool.name] = dynamicTool({
+        description: registeredTool.description,
+        inputSchema: schema,
+        // input is typed as 'unknown' — validate/cast at runtime
+        execute: async (input) => {
+          const observer = this.options.observer ?? noopAgentObserver;
+          const startedAt = performance.now();
+
+          observer.onToolEvent({
+            type: "tool-start",
+            name: registeredTool.name,
+            input,
+          });
+
+          try {
+            let result: SqlToolResult;
+
+            const isQuery = registeredTool.name === "execute_query";
+            const queryInput = input as { sql?: unknown } | undefined;
+            const sql =
+              typeof queryInput?.sql === "string" ? queryInput.sql.trim() : "";
+
+            const normalizedSql = isQuery ? normalizeSql(sql) : "";
+
+            const planGate = isQuery && this.planRequired;
+            const planMismatch =
+              planGate && runtime.queryPlan
+                ? checkSqlFollowsPlan(
+                    sql,
+                    runtime.queryPlan,
+                    this.context.database.dialect,
+                  )
+                : undefined;
+
+            if (planGate && !runtime.queryPlan) {
+              result = {
+                success: false,
+                executionAttempted: false,
+                error:
+                  "No query plan has been accepted. Call submit_query_plan with the structured plan before executing SQL.",
+              };
+            } else if (isQuery && !runtime.relationshipsInspected) {
+              result = {
+                success: false,
+                executionAttempted: false,
+                error:
+                  "Query planning requires global foreign-key discovery first. Call get_relationships without a table argument, then build SQL using the returned relationships where relevant.",
+              };
+            } else if (planMismatch && !planMismatch.ok) {
+              runtime.planSqlMismatches += 1;
+              result = {
+                success: false,
+                executionAttempted: false,
+                error: `The SQL reads ${planMismatch.unplanned.join(", ")}, which the accepted plan does not list. Submit an updated plan that includes ${planMismatch.unplanned.length === 1 ? "it" : "them"}, or rewrite the SQL to use only the planned tables.`,
+              };
+            } else if (
+              isQuery &&
+              runtime.attemptedQueries.has(normalizedSql)
+            ) {
+              result = {
+                success: false,
+                executionAttempted: false,
+                error:
+                  "This SQL query has already been attempted. Do not retry it unchanged. Use the previous result or error to identify a concrete correction, or provide the best supported answer.",
+              };
+            } else if (
+              isQuery &&
+              runtime.queryAttempts >= DEFAULT_MAX_QUERY_ATTEMPTS
+            ) {
+              result = {
+                success: false,
+                executionAttempted: false,
+                error: `Maximum of ${DEFAULT_MAX_QUERY_ATTEMPTS} SQL query attempts reached. Use the existing results to provide the best supported answer, and clearly state any limitation.`,
+              };
+            } else {
+              if (isQuery) {
+                // Count only queries that are actually passed to the registered tool.
+                runtime.attemptedQueries.add(normalizedSql);
+                runtime.queryAttempts += 1;
+              }
+
+              result = await registeredTool.execute(input, this.context);
+
+              // A query the SQL validator rejected never reached the database,
+              // so it should not use up an attempt or block a corrected retry.
+              if (isQuery && result.executionAttempted === false) {
+                runtime.attemptedQueries.delete(normalizedSql);
+                runtime.queryAttempts -= 1;
+              }
+
+              if (
+                registeredTool.name === "get_relationships" &&
+                result.success
+              ) {
+                const relationshipInput = input as
+                  | { table?: unknown }
+                  | undefined;
+
+                if (!String(relationshipInput?.table ?? "").trim()) {
+                  runtime.relationshipsInspected = true;
+                }
+              }
+            }
+
+            observer.onToolEvent({
+              type: 'tool-end',
+              name: registeredTool.name,
+              input,
+              success: result.success,
+              durationMs: Math.round(performance.now() - startedAt),
+              data: result.success ? result.data : undefined,
+              error: result.success ? undefined : result.error,
+              ...(registeredTool.name === 'execute_query'
+                ? { databaseExecutionAttempted: result.executionAttempted ?? false }
+                : {}),
             });
 
             return result;
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);
-
             observer.onToolEvent({
               type: "tool-end",
-              name: "submit_query_plan",
+              name: registeredTool.name,
               input,
               success: false,
               durationMs: Math.round(performance.now() - startedAt),
               error: message,
+              databaseExecutionAttempted: false,
             });
 
             throw error;
           }
         },
       });
-
-      for (const registeredTool of registered) {
-        const schema = schemas[registeredTool.name];
-        if (!schema) {
-          throw new Error(
-            `No input schema is defined for registered tool "${registeredTool.name}".`,
-          );
-        }
-
-        toolSet[registeredTool.name] = dynamicTool({
-          description: registeredTool.description,
-          inputSchema: schema,
-          // input is typed as 'unknown' — validate/cast at runtime
-          execute: async (input) => {
-            const observer = this.options.observer ?? noopAgentObserver;
-            const startedAt = performance.now();
-
-            observer.onToolEvent({
-              type: "tool-start",
-              name: registeredTool.name,
-              input,
-            });
-
-            try {
-              let result: SqlToolResult;
-
-              const isQuery = registeredTool.name === "execute_query";
-              const queryInput = input as { sql?: unknown } | undefined;
-              const sql =
-                typeof queryInput?.sql === "string" ? queryInput.sql.trim() : "";
-
-              const normalizedSql = isQuery ? normalizeSql(sql) : "";
-
-              if (isQuery && !runtime.queryPlan) {
-                result = {
-                  success: false,
-                  executionAttempted: false,
-                  error:
-                    "No query plan has been submitted. Call submit_query_plan with the structured plan before executing SQL.",
-                };
-              } else if (isQuery && !runtime.relationshipsInspected) {
-                result = {
-                  success: false,
-                  executionAttempted: false,
-                  error:
-                    "Query planning requires global foreign-key discovery first. Call get_relationships without a table argument, then build SQL using the returned relationships where relevant.",
-                };
-              } else if (
-                isQuery &&
-                runtime.attemptedQueries.has(normalizedSql)
-              ) {
-                result = {
-                  success: false,
-                  error:
-                    "This SQL query has already been attempted. Do not retry it unchanged. Use the previous result or error to identify a concrete correction, or provide the best supported answer.",
-                };
-              } else if (
-                isQuery &&
-                runtime.queryAttempts >= DEFAULT_MAX_QUERY_ATTEMPTS
-              ) {
-                result = {
-                  success: false,
-                  executionAttempted: false,
-                  error: `Maximum of ${DEFAULT_MAX_QUERY_ATTEMPTS} SQL query attempts reached. Use the existing results to provide the best supported answer, and clearly state any limitation.`,
-                };
-              } else {
-                if (isQuery) {
-                  // Count only queries that are actually passed to the registered tool.
-                  runtime.attemptedQueries.add(normalizedSql);
-                  runtime.queryAttempts += 1;
-                }
-
-                result = await registeredTool.execute(input, this.context);
-
-                if (
-                  registeredTool.name === "get_relationships" &&
-                  result.success
-                ) {
-                  const relationshipInput = input as
-                    | { table?: unknown }
-                    | undefined;
-
-                  if (!String(relationshipInput?.table ?? "").trim()) {
-                    runtime.relationshipsInspected = true;
-                  }
-                }
-              }
-
-              observer.onToolEvent({
-                type: 'tool-end',
-                name: registeredTool.name,
-                input,
-                success: result.success,
-                durationMs: Math.round(performance.now() - startedAt),
-                data: result.success ? result.data : undefined,
-                error: result.success ? undefined : result.error,
-                ...(registeredTool.name === 'execute_query'
-                  ? { databaseExecutionAttempted: result.executionAttempted ?? false }
-                  : {}),
-              });
-
-              return result;
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : String(error);
-              observer.onToolEvent({
-                type: "tool-end",
-                name: registeredTool.name,
-                input,
-                success: false,
-                durationMs: Math.round(performance.now() - startedAt),
-                error: message,
-                databaseExecutionAttempted: false,
-              });
-
-              throw error;
-            }
-          },
-        });
-      }
-
-      return toolSet;
     }
+
+    return toolSet;
+  }
+
+  private async loadSchemaFacts(runtime: AskRuntime): Promise<SchemaFacts> {
+    const { database, schemaCache } = this.context;
+
+    const tables: TableInfo[] = schemaCache
+      ? await schemaCache.listTables(database)
+      : await database.listTables();
+
+    return {
+      dialect: database.dialect,
+      tables,
+      relationships: runtime.relationships,
+      describe: (table) => {
+        const name = table.schema ? `${table.schema}.${table.name}` : table.name;
+        return schemaCache
+          ? schemaCache.describeTable(database, name)
+          : database.describeTable(name);
+      },
+    };
+  }
 
   private async discoverRelationships(): Promise<SqlToolResult> {
     const relationshipTool = getTools().find(

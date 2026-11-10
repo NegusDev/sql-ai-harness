@@ -182,6 +182,7 @@ Model availability, pricing, quotas, and API behavior are controlled by each pro
 | `SQL_QUERY_TIMEOUT_MS` | Per-query timeout (ms) | `10000` |
 | `SQL_MAX_RESULT_BYTES` | Max result payload size (bytes) | `1048576` |
 | `AGENT_MAX_STEPS` | Max agent loop steps | `8` |
+| `AGENT_QUERY_PLAN` | `on` requires a schema-checked query plan before SQL runs; `off` skips it | `on` |
 | `SCHEMA_CACHE_TTL_MS` | Schema cache lifetime (ms) | `300000` (5 min) |
 
 Start from the `.env.example` values and tune against your own database. Higher limits increase both resource use and the amount of data exposed to the model.

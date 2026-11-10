@@ -101,6 +101,7 @@ async function main(): Promise<void> {
     },
     {
       maxSteps: config.agent.maxSteps,
+      requirePlan: config.agent.queryPlan,
       observer: mode === 'debug' ? new CliAgentObserver() : undefined,
       databaseContext,
       responseMode: mode,

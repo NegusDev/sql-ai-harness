@@ -39,6 +39,18 @@ class Recorder implements AgentObserver {
   }
 }
 
+const SCHEMA: Record<string, string[]> = {
+  clients: ['id', 'name'],
+  transactions: ['id', 'client_id', 'amount'],
+};
+
+const FK: RelationshipInfo = {
+  table: 'transactions',
+  column: 'client_id',
+  referencedTable: 'clients',
+  referencedColumn: 'id',
+};
+
 function makeContext(overrides: { relationships?: () => Promise<RelationshipInfo[]> } = {}) {
   const executed: string[] = [];
   const context: ToolContext = {
@@ -46,7 +58,18 @@ function makeContext(overrides: { relationships?: () => Promise<RelationshipInfo
       dialect: 'mysql',
       async listTables() { return [{ name: 'clients' }, { name: 'transactions' }]; },
       async describeTable(table: string) {
-        return { table: { name: table }, columns: [] };
+        const columns = SCHEMA[table];
+        if (!columns) throw new Error(`Table "${table}" was not found.`);
+        return {
+          table: { name: table },
+          columns: columns.map((name) => ({
+            name,
+            dataType: 'int',
+            nullable: false,
+            isPrimaryKey: name === 'id',
+            isAutoIncrement: false,
+          })),
+        };
       },
       getRelationships: overrides.relationships ?? (async () => []),
       async executeQuery(sql: string) {
@@ -60,22 +83,26 @@ function makeContext(overrides: { relationships?: () => Promise<RelationshipInfo
   return { context, executed };
 }
 
-async function setup(overrides: Parameters<typeof makeContext>[0] = {}) {
+async function setup(
+  overrides: Parameters<typeof makeContext>[0] = {},
+  options: { requirePlan?: boolean } = {},
+) {
   const provider = new CapturingProvider();
   const recorder = new Recorder();
   const { context, executed } = makeContext(overrides);
-  await new Agent(provider, context, { observer: recorder }).ask('How many clients are there?');
+  const agent = new Agent(provider, context, { observer: recorder, ...options });
+  const answer = await agent.ask('How many clients are there?');
 
   const call = (name: string, input: unknown) =>
     provider.tools[name]!.execute(input, { toolCallId: 't', messages: [] });
 
-  return { provider, recorder, executed, call };
+  return { provider, recorder, executed, call, answer, agent };
 }
 
 const plan = (overrides: Record<string, unknown> = {}) => ({
   objective: 'Count clients',
   tables: ['clients'],
-  requiredFields: ['count(*)'],
+  fields: [{ table: 'clients', column: 'id' }],
   filters: [],
   joins: [],
   ...overrides,
@@ -136,7 +163,7 @@ describe('query plan gate', () => {
     const { call } = await setup();
 
     await call('submit_query_plan', plan({ objective: 'first' }));
-    const second = await call('submit_query_plan', plan({ objective: 'second', tables: ['transactions'] }));
+    const second = await call('submit_query_plan', plan({ objective: 'second', tables: ['transactions'], fields: [] }));
 
     expect(second.data.submission).toBe(2);
     expect(second.data.plan.objective).toBe('second');
@@ -163,7 +190,7 @@ describe('query plan gate', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Plan schema (shape only; semantic checks are listed as todo below)
+// Plan schema (shape only; semantic checks are tested further down)
 // ---------------------------------------------------------------------------
 
 describe('query plan schema', () => {
@@ -173,7 +200,8 @@ describe('query plan schema', () => {
     ['blank table name', { tables: [' '] }],
     ['too many tables', { tables: Array.from({ length: 21 }, (_, i) => `t${i}`) }],
     ['objective over 500 chars', { objective: 'x'.repeat(501) }],
-    ['non-string field', { requiredFields: [42] }],
+    ['non-object field', { fields: [42] }],
+    ['field without a column', { fields: [{ table: 'clients' }] }],
   ];
 
   it.each(invalid)('rejects %s', async (_label, override) => {
@@ -302,34 +330,220 @@ describe('foreign-key discovery', () => {
 describe('prompt contract', () => {
   it('tells the model the plan is mandatory and read-only rules apply', async () => {
     const { provider } = await setup();
-    expect(provider.system).toContain('MUST call submit_query_plan');
+    expect(provider.system).toContain('submit_query_plan');
+    expect(provider.system).toMatch(/at most 4 plans/);
     expect(provider.system).toContain('read-only');
     expect(provider.system).toMatch(/budget of 8 steps/);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Behaviour the design calls for but the code does not do yet. These are todo
-// markers: turn each into a real test as the feature lands.
+// Semantic plan validation
 // ---------------------------------------------------------------------------
 
-describe('planned: semantic plan validation', () => {
-  it.todo('rejects a plan naming a table that does not exist, and lists the real tables');
-  it.todo('rejects a plan field whose column is not on the named table');
-  it.todo('rejects a plan join that is not a known foreign key, naming the real foreign keys');
-  it.todo('accepts a plan whose joins follow the discovered foreign keys');
-  it.todo('compares table names case-sensitively on postgres and insensitively on mysql');
+describe('semantic plan validation', () => {
+  it('rejects a table that does not exist and lists the real ones', async () => {
+    const { call, executed } = await setup();
+    const r = await call('submit_query_plan', plan({ tables: ['unicorns'], fields: [] }));
+
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/Unknown table: unicorns/);
+    expect(r.error).toMatch(/clients, transactions/);
+
+    // A rejected plan must not unlock execution.
+    expect((await call('execute_query', { sql: 'SELECT 1' })).success).toBe(false);
+    expect(executed).toEqual([]);
+  });
+
+  it('rejects a field whose column is not on the table', async () => {
+    const { call } = await setup();
+    const r = await call('submit_query_plan', plan({ fields: [{ table: 'clients', column: 'email' }] }));
+
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/no column "email"/);
+  });
+
+  it('rejects a field on a table that is not in the plan', async () => {
+    const { call } = await setup();
+    const r = await call('submit_query_plan', plan({ fields: [{ table: 'transactions', column: 'amount' }] }));
+
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/not listed in "tables"/);
+  });
+
+  it('rejects planned tables that are not connected by joins', async () => {
+    const { call } = await setup({ relationships: async () => [FK] });
+    const r = await call('submit_query_plan', plan({ tables: ['clients', 'transactions'], fields: [] }));
+
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/not connected by joins/);
+  });
+
+  it('accepts joins that follow the discovered foreign key, in either direction', async () => {
+    const { call } = await setup({ relationships: async () => [FK] });
+    const joins = [
+      { left: { table: 'transactions', column: 'client_id' }, right: { table: 'clients', column: 'id' } },
+    ];
+    const forward = await call('submit_query_plan', plan({ tables: ['clients', 'transactions'], joins }));
+    expect(forward.success).toBe(true);
+    expect(forward.data.warnings).toBeUndefined();
+
+    const reversed = await call(
+      'submit_query_plan',
+      plan({ tables: ['clients', 'transactions'], joins: [{ left: joins[0]!.right, right: joins[0]!.left }] }),
+    );
+    expect(reversed.success).toBe(true);
+    expect(reversed.data.warnings).toBeUndefined();
+  });
+
+  it('accepts a join that is not a declared foreign key but warns about it', async () => {
+    const { call } = await setup({ relationships: async () => [FK] });
+    const r = await call(
+      'submit_query_plan',
+      plan({
+        tables: ['clients', 'transactions'],
+        joins: [{ left: { table: 'clients', column: 'id' }, right: { table: 'transactions', column: 'id' } }],
+      }),
+    );
+
+    expect(r.success).toBe(true);
+    expect(r.data.warnings[0]).toMatch(/not a declared foreign key/);
+  });
+
+  it('matches table and column names case-insensitively', async () => {
+    const { call } = await setup();
+    const r = await call('submit_query_plan', plan({ tables: ['CLIENTS'], fields: [{ table: 'CLIENTS', column: 'ID' }] }));
+    expect(r.success).toBe(true);
+  });
 });
 
-describe('planned: SQL must follow the plan', () => {
-  it.todo('rejects SQL that reads a table not in the plan, telling the model to resubmit the plan');
-  it.todo('accepts SQL whose FROM/JOIN tables are a subset of the plan tables');
-  it.todo('ignores CTE names when comparing SQL tables to plan tables');
-  it.todo('allows the new SQL after the plan is resubmitted with the extra table');
+// ---------------------------------------------------------------------------
+// SQL must follow the plan
+// ---------------------------------------------------------------------------
+
+describe('SQL follows the plan', () => {
+  it('rejects SQL that reads a table outside the plan, without touching the database', async () => {
+    const { call, executed, recorder } = await setup();
+    await call('submit_query_plan', plan());
+
+    const r = await call('execute_query', { sql: 'SELECT * FROM transactions' });
+
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/reads transactions/);
+    expect(r.error).toMatch(/submit_query_plan|updated plan/);
+    expect(r.executionAttempted).toBe(false);
+    expect(executed).toEqual([]);
+    expect((recorder.ends('execute_query')[0] as any).databaseExecutionAttempted).toBe(false);
+  });
+
+  it('does not use up a query attempt on a plan mismatch', async () => {
+    const { call, executed } = await setup();
+    await call('submit_query_plan', plan());
+
+    for (let i = 0; i < 5; i += 1) await call('execute_query', { sql: 'SELECT * FROM transactions' });
+    for (let i = 1; i <= 3; i += 1) {
+      expect((await call('execute_query', { sql: `SELECT ${i} FROM clients` })).success).toBe(true);
+    }
+    expect(executed).toHaveLength(3);
+  });
+
+  it('allows SQL that uses a subset of the planned tables', async () => {
+    const { call, executed } = await setup({ relationships: async () => [FK] });
+    await call(
+      'submit_query_plan',
+      plan({
+        tables: ['clients', 'transactions'],
+        joins: [{ left: { table: 'transactions', column: 'client_id' }, right: { table: 'clients', column: 'id' } }],
+      }),
+    );
+
+    const r = await call('execute_query', { sql: 'SELECT COUNT(*) FROM clients' });
+    expect(r.success).toBe(true);
+    expect(executed).toHaveLength(1);
+  });
+
+  it('allows the new SQL once the plan is resubmitted with the extra table', async () => {
+    const { call, executed } = await setup();
+    await call('submit_query_plan', plan());
+
+    const sql = 'SELECT amount FROM transactions';
+    expect((await call('execute_query', { sql })).success).toBe(false);
+
+    await call('submit_query_plan', plan({ tables: ['transactions'], fields: [{ table: 'transactions', column: 'amount' }] }));
+    expect((await call('execute_query', { sql })).success).toBe(true);
+    expect(executed).toEqual([sql]);
+  });
+
+  it('refunds the attempt when the SQL validator rejects the query', async () => {
+    const { call, executed } = await setup();
+    await call('submit_query_plan', plan());
+
+    for (let i = 0; i < 4; i += 1) {
+      expect((await call('execute_query', { sql: `DELETE FROM clients WHERE id = ${i}` })).success).toBe(false);
+    }
+    for (let i = 1; i <= 3; i += 1) {
+      expect((await call('execute_query', { sql: `SELECT ${i} FROM clients` })).success).toBe(true);
+    }
+    expect(executed).toHaveLength(3);
+  });
 });
 
-describe('planned: limits and metrics', () => {
-  it.todo('stops accepting plans after the cap and returns the last validation error');
-  it.todo('reports planSubmissions and plansRejected in the agent result for the eval report');
-  it.todo('does not count SQL-validator rejections as query attempts (or documents that it does)');
+// ---------------------------------------------------------------------------
+// Limits, metrics and the on/off switch
+// ---------------------------------------------------------------------------
+
+describe('plan limits and metrics', () => {
+  it('stops accepting plans after four submissions', async () => {
+    const { call } = await setup();
+
+    for (let i = 0; i < 4; i += 1) {
+      expect((await call('submit_query_plan', plan({ tables: ['unicorns'], fields: [] }))).success).toBe(false);
+    }
+
+    const fifth = await call('submit_query_plan', plan());
+    expect(fifth.success).toBe(false);
+    expect(fifth.error).toMatch(/Maximum of 4 plan submissions/);
+    expect((await call('execute_query', { sql: 'SELECT 1' })).success).toBe(false);
+  });
+
+  it('keeps the last accepted plan once the cap is reached', async () => {
+    const { call } = await setup();
+    await call('submit_query_plan', plan());
+    for (let i = 0; i < 3; i += 1) await call('submit_query_plan', plan({ tables: ['unicorns'], fields: [] }));
+
+    const over = await call('submit_query_plan', plan());
+    expect(over.error).toMatch(/last accepted plan/);
+    expect((await call('execute_query', { sql: 'SELECT 1 FROM clients' })).success).toBe(true);
+  });
+
+  it('reports plan counters in the agent result', async () => {
+    const provider = new CapturingProvider();
+    const { context } = makeContext();
+    const agent = new Agent(provider, context);
+
+    // Drive the tools from inside generate so the counters exist when ask() returns.
+    provider.generate = async (request) => {
+      const tools = request.tools as unknown as Tools;
+      const run = (name: string, input: unknown) => tools[name]!.execute(input, { toolCallId: 't', messages: [] });
+      await run('submit_query_plan', plan({ tables: ['unicorns'], fields: [] }));
+      await run('submit_query_plan', plan());
+      await run('execute_query', { sql: 'SELECT * FROM transactions' });
+      return { text: 'done', steps: 3, toolCalls: 3 };
+    };
+
+    const result = await agent.ask('How many clients?');
+    expect(result.plan).toEqual({ submitted: 2, accepted: 1, rejected: 1, sqlMismatches: 1 });
+  });
+
+  it('can be switched off: no plan tool, no plan gate, no plan prompt, no counters', async () => {
+    const { provider, call, executed, answer } = await setup({}, { requirePlan: false });
+
+    expect(Object.keys(provider.tools)).not.toContain('submit_query_plan');
+    expect(provider.system).not.toContain('submit_query_plan');
+    expect(answer.plan).toBeUndefined();
+
+    const r = await call('execute_query', { sql: 'SELECT * FROM transactions' });
+    expect(r.success).toBe(true);
+    expect(executed).toHaveLength(1);
+  });
 });
