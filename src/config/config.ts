@@ -9,6 +9,7 @@ const providerSchema = z.enum([
   'google',
   'cerebras',
   'ollama',
+  'deepseek'
 ]);
 
 export type AiProviderName = z.infer<typeof providerSchema>;
@@ -21,6 +22,7 @@ const envSchema = z.object({
   GROQ_API_KEY: z.string().optional(),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
   CEREBRAS_API_KEY: z.string().optional(),
+  DEEPSEEK_API_KEY: z.string().optional(),
 
   OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434/v1'),
 
@@ -85,6 +87,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     google: parsed.GOOGLE_GENERATIVE_AI_API_KEY,
     cerebras: parsed.CEREBRAS_API_KEY,
     ollama: undefined,
+    deepseek: parsed.DEEPSEEK_API_KEY,
   };
 
   const apiKey = apiKeys[parsed.AI_PROVIDER];
@@ -95,6 +98,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       groq: 'GROQ_API_KEY',
       google: 'GOOGLE_GENERATIVE_AI_API_KEY',
       cerebras: 'CEREBRAS_API_KEY',
+      deepseek: 'DEEPSEEK_API_KEY',
     };
 
     throw new Error(
