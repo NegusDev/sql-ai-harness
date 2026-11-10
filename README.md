@@ -150,7 +150,7 @@ Configuration is loaded from `.env` in the current working directory plus the pr
 
 | Variable | Purpose | Example |
 |---|---|---|
-| `AI_PROVIDER` | One of `openrouter`, `google`, `groq`, `cerebras`,  `ollama`, `deepseek` | `openrouter` |
+| `AI_PROVIDER` | One of `openrouter`, `google`, `groq`, `cerebras`, `ollama`, `deepseek` | `openrouter` |
 | `AI_MODEL` | Exact model ID accepted by the provider | *required* |
 | `OPENROUTER_API_KEY` | OpenRouter credential | n/a |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini credential | n/a |
