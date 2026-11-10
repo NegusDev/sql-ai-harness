@@ -9,7 +9,7 @@ const providerSchema = z.enum([
   'google',
   'cerebras',
   'ollama',
-  'deepseek'
+  'deepseek',
 ]);
 
 export type AiProviderName = z.infer<typeof providerSchema>;
