@@ -47,6 +47,22 @@ describe('values comparison mode', () => {
     expect(evaluateEquivalence(sum, [queryEvent('', [{ total: 151 }])]).status).toBe('failed');
   });
 
+  it('shows the received values when nothing matches', () => {
+    const r = evaluateEquivalence(sum, [queryEvent('', [{ total: 151 }])]);
+    expect(r.details?.some((d) => d === 'Received values (1 row): ["151"]')).toBe(true);
+  });
+
+  it('prints received strings without extra quoting', () => {
+    const r = evaluateEquivalence(sum, [queryEvent('', [{ code: 'UGX', total: 151 }])]);
+    expect(r.details?.some((d) => d.includes('["UGX","151"]'))).toBe(true);
+  });
+
+  it('shows the received values when the row count differs', () => {
+    const r = evaluateEquivalence(sum, [queryEvent('', [{ total: 150 }, { total: 150 }])]);
+    expect(r.details?.[0]).toMatch(/Row count differs: expected 1, received 2/);
+    expect(r.details?.[1]).toMatch(/Received values \(2 rows\)/);
+  });
+
   it('still fails when the row count differs', () => {
     expect(evaluateEquivalence(sum, [queryEvent('', [{ total: 150 }, { total: 150 }])]).status).toBe('failed');
   });
