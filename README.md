@@ -142,6 +142,8 @@ Shorthand flags `--technical` and `--debug` also work.
 | `technical` | The answer plus the SQL that was run. |
 | `debug` | The answer plus tool-call diagnostics. Start here when an answer looks wrong. |
 
+**Terminal output.** In an interactive terminal the CLI shows a progress spinner, renders the answer's Markdown (tables, bold, code, lists) and, in debug mode, prints the tool trace with symbols, highlighted SQL, the submitted query plan and any plan warnings. When output is piped or redirected, nothing changes: you get the plain Markdown answer and the plain `[tool]` / `[done]` trace. Set `NO_COLOR=1` to turn colors off, or `FORCE_COLOR=1` to keep them in a pipe.
+
 ## Configuration
 
 Configuration is loaded from `.env` in the current working directory plus the process environment. See `.env.example` in the repository for a full template.

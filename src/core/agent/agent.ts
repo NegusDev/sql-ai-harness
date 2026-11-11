@@ -429,6 +429,7 @@ export class Agent {
               data: {
                 accepted: true,
                 submission: runtime.planSubmissions,
+                maxSubmissions: MAX_PLAN_SUBMISSIONS,
                 plan: parsed.data,
                 ...(validation.warnings.length > 0
                   ? { warnings: validation.warnings }
