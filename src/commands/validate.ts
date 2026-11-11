@@ -5,6 +5,7 @@ import { createAiProvider } from '../ai/factory.js';
 import type { AiProvider } from '../ai/provider.js';
 import { loadDatabaseContext } from '../context/db-context.js';
 import type { DatabaseAdapter, DatabaseContext } from '../core/types/index.js';
+import { createStyle, plainStyle, type Style } from '../ui/style.js';
 
 export type CheckStatus = 'pass' | 'warn' | 'fail' | 'skip';
 
@@ -200,19 +201,38 @@ const SYMBOLS: Record<CheckStatus, string> = {
   skip: '[skip]',
 };
 
-export function formatValidationReport(results: CheckResult[]): string {
-  const lines = results.map((result) => `${SYMBOLS[result.status]} ${result.name}: ${result.detail}`);
+function symbolFor(status: CheckStatus, style: Style): string {
+  if (!style.rich) return style.color ? colorize(status, SYMBOLS[status], style) : SYMBOLS[status];
+
+  const icons: Record<CheckStatus, string> = { pass: '✓', warn: '⚠', fail: '✗', skip: '○' };
+  return colorize(status, icons[status], style);
+}
+
+function colorize(status: CheckStatus, text: string, style: Style): string {
+  if (status === 'pass') return style.green(text);
+  if (status === 'warn') return style.yellow(text);
+  if (status === 'fail') return style.red(text);
+  return style.dim(text);
+}
+
+export function formatValidationReport(results: CheckResult[], style: Style = plainStyle): string {
+  const lines = results.map(
+    (result) =>
+      `${symbolFor(result.status, style)} ${style.bold(result.name)}: ${
+        result.status === 'skip' ? style.dim(result.detail) : result.detail
+      }`,
+  );
   const failed = results.filter((result) => result.status === 'fail').length;
   const warned = results.filter((result) => result.status === 'warn').length;
 
   lines.push('');
 
   if (failed > 0) {
-    lines.push(`${failed} check${failed === 1 ? '' : 's'} failed. Fix the items marked [fail] and run validate again.`);
+    lines.push(style.red(`${failed} check${failed === 1 ? '' : 's'} failed. Fix the items marked ${style.rich ? '✗' : '[fail]'} and run validate again.`));
   } else if (warned > 0) {
-    lines.push('Ready to use, with warnings above.');
+    lines.push(style.yellow('Ready to use, with warnings above.'));
   } else {
-    lines.push('Everything looks good. Try: sql-ai-harness ask "How many rows are in my largest table?"');
+    lines.push(`${style.green('Everything looks good.')} Try: sql-ai-harness ask "How many rows are in my largest table?"`);
   }
 
   return lines.join('\n');
@@ -240,7 +260,7 @@ export async function runValidate(args: string[]): Promise<void> {
   const options = parseValidateArgs(args);
   const results = await runValidationChecks(options);
 
-  console.log(formatValidationReport(results));
+  console.log(formatValidationReport(results, createStyle(process.stdout)));
 
   if (results.some((result) => result.status === 'fail')) {
     process.exitCode = 1;

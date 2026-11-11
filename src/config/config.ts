@@ -48,6 +48,8 @@ const envSchema = z.object({
   SQL_QUERY_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   SQL_MAX_RESULT_BYTES: z.coerce.number().int().positive().default(1_048_576),
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(20).default(8),
+  // "off" skips the query-plan step (useful for comparing runs).
+  AGENT_QUERY_PLAN: z.enum(['on', 'off']).default('on'),
   SCHEMA_CACHE_TTL_MS: z.coerce.number().int().positive().default(300_000),
 });
 
@@ -72,6 +74,7 @@ export interface AppConfig {
   safety: SqlSafetyPolicy;
   agent: {
     maxSteps: number;
+    queryPlan: boolean;
   };
   schema: {
     cacheTtlMs: number;
@@ -128,6 +131,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     agent: {
       maxSteps: parsed.AGENT_MAX_STEPS,
+      queryPlan: parsed.AGENT_QUERY_PLAN === 'on',
     },
     schema: {
       cacheTtlMs: parsed.SCHEMA_CACHE_TTL_MS,
