@@ -4,6 +4,7 @@ import { createGroq } from '@ai-sdk/groq';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createCerebras } from '@ai-sdk/cerebras';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { createDeepSeek } from '@ai-sdk/deepseek';
 
 import type { AppConfig } from '../config/config.js';
 import type { AiProvider } from './provider.js';
@@ -58,6 +59,14 @@ export function createAiProvider(config: AppConfig['ai']): AiProvider {
         'ollama',
         provider.chatModel(config.model),
       );
+    }
+
+    case 'deepseek': {
+      const provider = createDeepSeek({
+        apiKey: config.apiKey!,
+      });
+
+      return new SdkAiProvider('deepseek', provider.chat(config.model));
     }
 
     default: {

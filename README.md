@@ -41,7 +41,7 @@ It is a reusable layer between an AI provider and an existing relational databas
 ## Features
 
 - **Natural-language questions** through the CLI or the TypeScript SDK.
-- **Bring your own model:** OpenRouter, Google Gemini, Groq, Cerebras, or Ollama.
+- **Bring your own model:** OpenRouter, Google Gemini, DeepSeek, Groq, Cerebras, or Ollama.
 - **Schema-aware agent** with tools for listing tables, describing tables, discovering foreign keys, running queries, and `EXPLAIN`.
 - **Safety by default:** configurable row, byte, timeout, and agent-step limits; capped SQL attempts; foreign-key discovery required before any SQL runs.
 - **Optional `sql-ai.md`** for business rules and vocabulary the model cannot infer from the schema.
@@ -150,13 +150,14 @@ Configuration is loaded from `.env` in the current working directory plus the pr
 
 | Variable | Purpose | Example |
 |---|---|---|
-| `AI_PROVIDER` | One of `openrouter`, `google`, `groq`, `cerebras`, `ollama` | `openrouter` |
+| `AI_PROVIDER` | One of `openrouter`, `google`, `groq`, `cerebras`, `ollama`, `deepseek` | `openrouter` |
 | `AI_MODEL` | Exact model ID accepted by the provider | *required* |
 | `OPENROUTER_API_KEY` | OpenRouter credential | n/a |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini credential | n/a |
 | `GROQ_API_KEY` | Groq credential | n/a |
 | `CEREBRAS_API_KEY` | Cerebras credential | n/a |
 | `OLLAMA_BASE_URL` | Ollama endpoint | `http://localhost:11434/v1` |
+| `DEEPSEEK_API_KEY` | DeepSeek credential | n/a |
 | `AI_SITE_URL` | Optional OpenRouter app URL metadata | n/a |
 | `AI_SITE_NAME` | Optional OpenRouter app name metadata | `SQL AI Harness` |
 

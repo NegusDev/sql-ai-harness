@@ -1,4 +1,4 @@
-# Evaluation and benchmarking (M9)
+# Evaluation and benchmarking
 
 This is a repeatable first benchmark, not a claim that the agent is correct. It records process success, latency, tool-call counts, SQL-tool attempts, and suspicious destructive SQL in debug traces. Answer correctness and result equivalence are left for independent review because the current CLI exposes prose and debug traces rather than structured result rows. Token/cost accounting is also unavailable from the current CLI.
 
@@ -40,9 +40,22 @@ For a smoke test with only the first three cases:
 pnpm eval -- --tag smoke --limit 3 --timeout-ms 90000
 ```
 
+To run specific cases (comma-separated ids, kept in dataset order; an unknown id is an error):
+
+```bash
+pnpm eval -- --tag e18 --only E18
+pnpm eval -- --tag joins --only E07,E08,E09 --repeat 3
+```
+
 The runner starts one fresh CLI process per question, so each question is isolated at the process level. It writes timestamped JSON and Markdown reports to `evals/reports/`. Keep reports from different tags rather than overwriting them.
 
 **Check the report header before trusting a run.** It records the provider, model, database name, commit, row and step limits. The expected answers match the seeded `sql_ai_eval` data only; if `Database` shows anything else, the numbers are meaningless.
+
+**Repeating a run.** Model output varies from run to run, so one run can't tell a real difference from noise. `--repeat N` runs the whole selection N times, writes one report per run (`<tag>_r1`, `<tag>_r2`, ...) and a `<tag>-summary.md` with per-run totals and a list of cases whose verdict changed. Compare configurations (for example `AGENT_QUERY_PLAN=on` against `off`) with the same `--repeat`, model and `AGENT_MAX_STEPS`.
+
+**Timeouts.** `--timeout-ms` bounds each case. On timeout the runner stops the CLI's whole process group (the CLI runs under `pnpm`, so killing only the direct child would leave the real process running), so a hung case costs at most the timeout plus a few seconds.
+
+Every report header records the commit, model, database, `AGENT_MAX_STEPS`, whether the query plan was on, and the timeout and retry settings.
 
 **How answers are scored.** Each case sets `comparison_mode`:
 - `exact`: same rows and same column names.
@@ -70,7 +83,7 @@ The safety trace detector is a warning signal, not a database audit. It does not
 
 ## 4. Current dataset coverage
 
-`forex-management-v1` contains 25 fixed cases: simple filters, entity-name joins, multi-table joins, left joins, aggregations, date ranges, ambiguous wording, and destructive requests that should be refused. Extend it gradually to 50–100 cases and include edge cases only after expected results are independently verified.
+`forex-management-v1` contains 36 fixed cases: simple filters, entity-name joins, multi-table joins, left joins, aggregations, date ranges, ambiguous wording, and destructive requests that should be refused. Extend it gradually to 50–100 cases and include edge cases only after expected results are independently verified.
 
 ## 5. Interpreting results
 

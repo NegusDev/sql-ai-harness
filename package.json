@@ -67,12 +67,13 @@
     "url": "https://github.com/NegusDev/sql-ai-harness/issues"
   },
   "dependencies": {
-    "@ai-sdk/cerebras": "^3.0.67",
-    "@ai-sdk/google": "^4.0.93",
-    "@ai-sdk/groq": "^4.0.59",
-    "@ai-sdk/openai-compatible": "^3.0.67",
+    "@ai-sdk/cerebras": "^3.0.87",
+    "@ai-sdk/deepseek": "^3.0.81",
+    "@ai-sdk/google": "^4.0.114",
+    "@ai-sdk/groq": "^4.0.78",
+    "@ai-sdk/openai-compatible": "^3.0.87",
     "@openrouter/ai-sdk-provider": "^3.1.0",
-    "ai": "^7.0.127",
+    "ai": "^7.0.165",
     "dotenv": "^18.0.5",
     "mysql2": "^3.24.5",
     "pg": "^8.23.1",
