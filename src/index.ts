@@ -9,8 +9,10 @@ export { Agent } from './core/agent/index.js';
 export type {
   AgentOptions,
   AgentResult,
+  PlanStats,
   ResponseMode,
 } from './core/agent/agent.js';
+export type { StructuredQueryPlan } from './core/agent/query-plan.js';
 export type {
   AgentObserver,
   AgentToolEvent,

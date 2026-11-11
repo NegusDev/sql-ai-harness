@@ -27,3 +27,11 @@ describe('database config', () => {
        expect(() => loadConfig({ AI_PROVIDER: 'deepseek', AI_MODEL: 'm' })).toThrow(/DEEPSEEK_API_KEY/);
   });
 });
+
+describe('agent config', () => {
+  it('requires a query plan by default and allows turning it off', () => {
+    expect(loadConfig(base).agent.queryPlan).toBe(true);
+    expect(loadConfig({ ...base, AGENT_QUERY_PLAN: 'off' }).agent.queryPlan).toBe(false);
+    expect(() => loadConfig({ ...base, AGENT_QUERY_PLAN: 'maybe' })).toThrow();
+  });
+});
