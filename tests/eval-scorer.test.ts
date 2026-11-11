@@ -49,7 +49,12 @@ describe('values comparison mode', () => {
 
   it('shows the received values when nothing matches', () => {
     const r = evaluateEquivalence(sum, [queryEvent('', [{ total: 151 }])]);
-    expect(r.details?.some((d) => d.startsWith('Received values (1 row): ["151"'))).toBe(true);
+    expect(r.details?.some((d) => d === 'Received values (1 row): ["151"]')).toBe(true);
+  });
+
+  it('prints received strings without extra quoting', () => {
+    const r = evaluateEquivalence(sum, [queryEvent('', [{ code: 'UGX', total: 151 }])]);
+    expect(r.details?.some((d) => d.includes('["UGX","151"]'))).toBe(true);
   });
 
   it('shows the received values when the row count differs', () => {

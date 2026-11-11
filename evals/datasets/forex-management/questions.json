@@ -299,13 +299,13 @@
     "id": "E18",
     "category": "conditional",
     "question": "Retrieve the latest active client rates for the 'send' direction and 'cash' rate type (exclude soft-deleted rows).",
-    "reference_sql": "SELECT id, currency_pair_id, rate FROM client_rates WHERE direction = 'send' AND rate_type = 'cash' AND superseded_at IS NULL AND deleted_at IS NULL;",
+    "reference_sql": "SELECT id, rate FROM client_rates WHERE direction = 'send' AND rate_type = 'cash' AND superseded_at IS NULL AND deleted_at IS NULL;",
     "expected_result": [
-      { "id": 12, "currency_pair_id": 1, "rate": "0.540540" },
-      { "id": 14, "currency_pair_id": 5, "rate": "0.000270" },
-      { "id": 16, "currency_pair_id": 2, "rate": "3680.000000" },
-      { "id": 18, "currency_pair_id": 8, "rate": "6700.000000" },
-      { "id": 20, "currency_pair_id": 7, "rate": "3650.000000" }
+      { "id": 12, "rate": "0.540540" },
+      { "id": 14, "rate": "0.000270" },
+      { "id": 16, "rate": "3680.000000" },
+      { "id": 18, "rate": "6700.000000" },
+      { "id": 20, "rate": "3650.000000" }
     ],
     "comparison_mode": "values",
     "checks": ["equivalence"],

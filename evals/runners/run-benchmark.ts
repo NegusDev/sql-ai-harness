@@ -395,8 +395,21 @@ function bagContains(haystack: string[], needle: string[]): boolean {
   return true;
 }
 
+/** Canonical values are JSON text; show strings without the extra quoting. */
+function plainValue(value: string): string {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return typeof parsed === 'string' ? parsed : value;
+  } catch {
+    return value;
+  }
+}
+
 function receivedValues(bags: string[][]): string {
-  const shown = bags.slice(0, 5).map((bag) => JSON.stringify(bag)).join(', ');
+  const shown = bags
+    .slice(0, 5)
+    .map((bag) => JSON.stringify(bag.map(plainValue)))
+    .join(', ');
   return `Received values (${bags.length} row${bags.length === 1 ? '' : 's'}): ${shown}${bags.length > 5 ? ', ...' : ''}`;
 }
 
@@ -1377,6 +1390,27 @@ export function repeatSummary(
   return lines.join('\n');
 }
 
+/**
+ * Picks the cases to run. `only` is a list of case ids (kept in dataset order);
+ * an unknown id is an error so a typo can't silently run nothing. `limit`
+ * keeps the first N of whatever remains.
+ */
+export function selectCases<T extends { id: string }>(cases: T[], only: string[], limit: number): T[] {
+  let selected = cases;
+
+  if (only.length > 0) {
+    const known = new Set(cases.map((c) => c.id));
+    const unknown = only.filter((id) => !known.has(id));
+    if (unknown.length > 0) {
+      throw new Error(`--only: unknown case id${unknown.length === 1 ? '' : 's'} ${unknown.join(', ')}.`);
+    }
+    const wanted = new Set(only);
+    selected = cases.filter((c) => wanted.has(c.id));
+  }
+
+  return limit > 0 ? selected.slice(0, limit) : selected;
+}
+
 async function main(): Promise<void> {
   installInterruptHandlers();
 
@@ -1391,7 +1425,11 @@ async function main(): Promise<void> {
 
   const raw = await readFile(datasetPath, 'utf8');
   const cases = validateDataset(JSON.parse(raw) as unknown);
-  const selected = limit > 0 ? cases.slice(0, limit) : cases;
+  const only = arg('--only', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const selected = selectCases(cases, only, limit);
   const datasetName = path.basename(path.dirname(datasetPath));
   const base = runMetadata(timeoutMs, retries);
   const runs: CaseResult[][] = [];

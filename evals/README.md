@@ -40,6 +40,13 @@ For a smoke test with only the first three cases:
 pnpm eval -- --tag smoke --limit 3 --timeout-ms 90000
 ```
 
+To run specific cases (comma-separated ids, kept in dataset order; an unknown id is an error):
+
+```bash
+pnpm eval -- --tag e18 --only E18
+pnpm eval -- --tag joins --only E07,E08,E09 --repeat 3
+```
+
 The runner starts one fresh CLI process per question, so each question is isolated at the process level. It writes timestamped JSON and Markdown reports to `evals/reports/`. Keep reports from different tags rather than overwriting them.
 
 **Check the report header before trusting a run.** It records the provider, model, database name, commit, row and step limits. The expected answers match the seeded `sql_ai_eval` data only; if `Database` shows anything else, the numbers are meaningless.

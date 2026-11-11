@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   repeatSummary,
+  selectCases,
   terminateChild,
   type CaseResult,
   type CheckResult,
@@ -101,6 +102,27 @@ function result(id: string, eq: CheckResult['status'], opts: Partial<CaseResult>
     ...opts,
   } as CaseResult;
 }
+
+describe('selectCases', () => {
+  const cases = ['E01', 'E02', 'E03', 'E04'].map((id) => ({ id }));
+
+  it('returns everything by default and honours --limit', () => {
+    expect(selectCases(cases, [], 0)).toHaveLength(4);
+    expect(selectCases(cases, [], 2).map((c) => c.id)).toEqual(['E01', 'E02']);
+  });
+
+  it('selects the named cases in dataset order', () => {
+    expect(selectCases(cases, ['E03', 'E01'], 0).map((c) => c.id)).toEqual(['E01', 'E03']);
+  });
+
+  it('combines --only with --limit', () => {
+    expect(selectCases(cases, ['E02', 'E03', 'E04'], 2).map((c) => c.id)).toEqual(['E02', 'E03']);
+  });
+
+  it('rejects unknown ids instead of running nothing', () => {
+    expect(() => selectCases(cases, ['E99', 'E01'], 0)).toThrow(/unknown case id E99/);
+  });
+});
 
 describe('repeatSummary', () => {
   const meta = { commit: 'abcdef1234', maxSteps: '8', queryPlan: 'on', timeoutMs: 90_000, retries: 2 };
