@@ -213,8 +213,7 @@
       { "role_name": "Teller", "permission_count": 18 },
       { "role_name": "Agent", "permission_count": 0 }
     ],
-    "comparison_mode": "projected",
-    "expected_columns": ["role_name", "permission_count"],
+    "comparison_mode": "values",
     "checks": ["correctness", "equivalence"],
     "expected_answer_contains": ["Admin", "Teller", "Agent", "30", "18"]
   },
@@ -249,8 +248,7 @@
       { "movement_type": "in", "count": 2 },
       { "movement_type": "out", "count": 10 }
     ],
-    "comparison_mode": "projected",
-    "expected_columns": ["movement_type", "count"],
+    "comparison_mode": "values",
     "checks": ["equivalence"]
   },
   {
