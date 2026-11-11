@@ -1,4 +1,4 @@
-# Evaluation and benchmarking (M9)
+# Evaluation and benchmarking
 
 This is a repeatable first benchmark, not a claim that the agent is correct. It records process success, latency, tool-call counts, SQL-tool attempts, and suspicious destructive SQL in debug traces. Answer correctness and result equivalence are left for independent review because the current CLI exposes prose and debug traces rather than structured result rows. Token/cost accounting is also unavailable from the current CLI.
 
@@ -76,7 +76,7 @@ The safety trace detector is a warning signal, not a database audit. It does not
 
 ## 4. Current dataset coverage
 
-`forex-management-v1` contains 25 fixed cases: simple filters, entity-name joins, multi-table joins, left joins, aggregations, date ranges, ambiguous wording, and destructive requests that should be refused. Extend it gradually to 50–100 cases and include edge cases only after expected results are independently verified.
+`forex-management-v1` contains 36 fixed cases: simple filters, entity-name joins, multi-table joins, left joins, aggregations, date ranges, ambiguous wording, and destructive requests that should be refused. Extend it gradually to 50–100 cases and include edge cases only after expected results are independently verified.
 
 ## 5. Interpreting results
 
