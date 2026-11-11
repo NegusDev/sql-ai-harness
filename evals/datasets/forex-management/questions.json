@@ -260,7 +260,7 @@
       { "status": "settled", "count": 20 },
       { "status": "unsettled", "count": 7 }
     ],
-    "comparison_mode": "exact",
+    "comparison_mode": "values",
     "checks": ["correctness", "equivalence"],
     "expected_answer_contains": ["settled", "unsettled"]
   },

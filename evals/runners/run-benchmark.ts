@@ -395,13 +395,21 @@ function bagContains(haystack: string[], needle: string[]): boolean {
   return true;
 }
 
+function receivedValues(bags: string[][]): string {
+  const shown = bags.slice(0, 5).map((bag) => JSON.stringify(bag)).join(', ');
+  return `Received values (${bags.length} row${bags.length === 1 ? '' : 's'}): ${shown}${bags.length > 5 ? ', ...' : ''}`;
+}
+
 /**
  * Compares rows by value, ignoring column names, and allowing the actual rows
  * to carry extra columns. Row count must still match exactly.
  */
 function compareValues(actual: unknown[], expected: unknown[], ordered: boolean): string[] {
   if (actual.length !== expected.length) {
-    return [`Row count differs: expected ${expected.length}, received ${actual.length}.`];
+    return [
+      `Row count differs: expected ${expected.length}, received ${actual.length}.`,
+      receivedValues(actual.map(valueBag)),
+    ];
   }
 
   const actualBags = actual.map(valueBag);
@@ -439,6 +447,10 @@ function compareValues(actual: unknown[], expected: unknown[], ordered: boolean)
       used.add(match);
     }
   }
+
+  // Show what the agent actually returned so a mismatch can be read without
+  // re-running the case.
+  if (details.length > 0) details.push(receivedValues(actualBags));
 
   return details;
 }
@@ -1310,6 +1322,7 @@ export function repeatSummary(
     '',
     `- Dataset: \`${datasetName}\``,
     `- Model: ${process.env.AI_PROVIDER ?? 'openrouter'} / ${process.env.AI_MODEL ?? 'unknown'}`,
+    `- Database: ${process.env.DB_NAME ?? 'unknown'}`,
     `- Commit: ${meta.commit ? meta.commit.slice(0, 8) : 'unknown'}`,
     `- Max agent steps: ${meta.maxSteps}`,
     `- Query plan: ${meta.queryPlan}`,
@@ -1331,9 +1344,9 @@ export function repeatSummary(
     '',
     'A case is *stable* when every run gives the same verdict. Provider errors are excluded from the verdict count.',
     '',
-    '| Case | Category | Verdicts | Pass rate |',
-    '|---|---|---|---:|',
   ];
+  const tableHeader = ['| Case | Category | Verdicts | Pass rate |', '|---|---|---|---:|'];
+  const tableRows: string[] = [];
 
   const ids = runs[0]?.map((r) => r.id) ?? [];
   let unstable = 0;
@@ -1347,11 +1360,13 @@ export function repeatSummary(
     if (!isStable) unstable += 1;
 
     if (!isStable || verdicts.some((v) => v === 'failed')) {
-      lines.push(
+      tableRows.push(
         `| ${id} | ${per[0]?.category ?? ''} | ${verdicts.join(', ')} | ${scored.length ? `${passed}/${scored.length}` : 'n/a'} |`,
       );
     }
   }
+
+  lines.push(...(tableRows.length ? [...tableHeader, ...tableRows] : ['All cases passed in every run, or failed the same way; none changed verdict.']));
 
   lines.push(
     '',

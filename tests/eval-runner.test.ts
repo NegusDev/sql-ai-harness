@@ -120,6 +120,12 @@ describe('repeatSummary', () => {
     expect(md).toContain('1 of 3 cases changed verdict between runs');
   });
 
+  it('says so instead of printing an empty table when every case is stable', () => {
+    const md = repeatSummary('t', 'ds', [[result('E01', 'passed')], [result('E01', 'passed')]], meta);
+    expect(md).not.toContain('| Case | Category |');
+    expect(md).toContain('none changed verdict');
+  });
+
   it('keeps provider errors out of pass rates', () => {
     const runs = [
       [result('E01', 'passed')],
