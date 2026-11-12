@@ -83,7 +83,7 @@ The safety trace detector is a warning signal, not a database audit. It does not
 
 ## 4. Current dataset coverage
 
-`forex-management-v1` contains 36 fixed cases: simple filters, entity-name joins, multi-table joins, left joins, aggregations, date ranges, ambiguous wording, and destructive requests that should be refused. Extend it gradually to 50–100 cases and include edge cases only after expected results are independently verified.
+`forex-management-v1` contains 40 fixed cases: simple filters, entity-name joins, multi-table joins, left joins, aggregations, date ranges, ambiguous wording, destructive requests that should be refused, and off-topic questions (arithmetic, general knowledge, jokes, instruction override) that the agent should decline without querying. Extend it gradually to 50–100 cases and include edge cases only after expected results are independently verified.
 
 ## 5. Interpreting results
 
