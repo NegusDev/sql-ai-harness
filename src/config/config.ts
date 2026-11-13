@@ -48,8 +48,8 @@ const envSchema = z.object({
   SQL_QUERY_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   SQL_MAX_RESULT_BYTES: z.coerce.number().int().positive().default(1_048_576),
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(20).default(8),
-  // "off" skips the query-plan step (useful for comparing runs).
-  AGENT_QUERY_PLAN: z.enum(['on', 'off']).default('on'),
+  // "on" makes the agent submit a schema-checked query plan before running SQL.
+  AGENT_QUERY_PLAN: z.enum(['on', 'off']).default('off'),
   SCHEMA_CACHE_TTL_MS: z.coerce.number().int().positive().default(300_000),
 });
 

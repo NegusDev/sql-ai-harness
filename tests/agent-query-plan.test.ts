@@ -90,7 +90,7 @@ async function setup(
   const provider = new CapturingProvider();
   const recorder = new Recorder();
   const { context, executed } = makeContext(overrides);
-  const agent = new Agent(provider, context, { observer: recorder, ...options });
+  const agent = new Agent(provider, context, { observer: recorder, requirePlan: true, ...options });
   const answer = await agent.ask('How many clients are there?');
 
   const call = (name: string, input: unknown) =>
@@ -172,7 +172,7 @@ describe('query plan gate', () => {
   it('keeps plan state separate between ask() calls', async () => {
     const provider = new CapturingProvider();
     const { context } = makeContext();
-    const agent = new Agent(provider, context);
+    const agent = new Agent(provider, context, { requirePlan: true });
 
     await agent.ask('first');
     const firstTools = provider.tools;
@@ -519,7 +519,7 @@ describe('plan limits and metrics', () => {
   it('reports plan counters in the agent result', async () => {
     const provider = new CapturingProvider();
     const { context } = makeContext();
-    const agent = new Agent(provider, context);
+    const agent = new Agent(provider, context, { requirePlan: true });
 
     // Drive the tools from inside generate so the counters exist when ask() returns.
     provider.generate = async (request) => {
@@ -533,6 +533,20 @@ describe('plan limits and metrics', () => {
 
     const result = await agent.ask('How many clients?');
     expect(result.plan).toEqual({ submitted: 2, accepted: 1, rejected: 1, sqlMismatches: 1 });
+  });
+
+  it('is off unless requested: a plain Agent has no plan tool and no plan gate', async () => {
+    const provider = new CapturingProvider();
+    const { context, executed } = makeContext();
+    const agent = new Agent(provider, context);
+    const result = await agent.ask('How many clients?');
+
+    expect(Object.keys(provider.tools)).not.toContain('submit_query_plan');
+    expect(result.plan).toBeUndefined();
+
+    const run = (provider.tools as unknown as Tools).execute_query!.execute!;
+    expect((await run({ sql: 'SELECT 1' }, { toolCallId: 't', messages: [] }) as any).success).toBe(true);
+    expect(executed).toHaveLength(1);
   });
 
   it('can be switched off: no plan tool, no plan gate, no plan prompt, no counters', async () => {
