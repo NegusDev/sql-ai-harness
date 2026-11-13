@@ -29,9 +29,9 @@ describe('database config', () => {
 });
 
 describe('agent config', () => {
-  it('requires a query plan by default and allows turning it off', () => {
-    expect(loadConfig(base).agent.queryPlan).toBe(true);
-    expect(loadConfig({ ...base, AGENT_QUERY_PLAN: 'off' }).agent.queryPlan).toBe(false);
+  it('leaves the query plan off by default and allows turning it on', () => {
+    expect(loadConfig(base).agent.queryPlan).toBe(false);
+    expect(loadConfig({ ...base, AGENT_QUERY_PLAN: 'on' }).agent.queryPlan).toBe(true);
     expect(() => loadConfig({ ...base, AGENT_QUERY_PLAN: 'maybe' })).toThrow();
   });
 });

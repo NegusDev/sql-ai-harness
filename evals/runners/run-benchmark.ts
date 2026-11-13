@@ -1048,7 +1048,7 @@ function runMetadata(timeoutMs: number, retries: number): Omit<RunMetadata, 'run
   return {
     commit: process.env.GIT_COMMIT ?? gitCommit(),
     maxSteps: process.env.AGENT_MAX_STEPS ?? '8 (default)',
-    queryPlan: process.env.AGENT_QUERY_PLAN ?? 'on (default)',
+    queryPlan: process.env.AGENT_QUERY_PLAN ?? 'off (default)',
     timeoutMs,
     retries,
   };

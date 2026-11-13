@@ -33,7 +33,7 @@ const context: ToolContext = {
 describe('Agent', () => {
   it('builds the database tool set and sends the question to the provider', async () => {
     const provider = new FakeProvider();
-    const agent = new Agent(provider, context, { maxSteps: 5 });
+    const agent = new Agent(provider, context, { maxSteps: 5, requirePlan: true });
 
     const result = await agent.ask('How many students are enrolled?');
 
@@ -109,7 +109,7 @@ describe('Agent query correctness safeguards', () => {
       },
     };
 
-    await new Agent(probe, probeContext).ask('List active users');
+    await new Agent(probe, probeContext, { requirePlan: true }).ask('List active users');
 
     expect(probe.results[0].success).toBe(false);
     expect(probe.results[0].error).toContain(
@@ -196,7 +196,7 @@ describe('Agent query correctness safeguards', () => {
       },
     };
 
-    await new Agent(probe, probeContext).ask('List active users');
+    await new Agent(probe, probeContext, { requirePlan: true }).ask('List active users');
 
     expect(probe.results.slice(0, 3).every((r) => r.success)).toBe(true);
     expect(probe.results[3].success).toBe(false);

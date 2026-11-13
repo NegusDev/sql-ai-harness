@@ -62,8 +62,9 @@ export interface AgentOptions {
   temperature?: number;
   observer?: AgentObserver;
   /**
-   * Require a validated query plan before any SQL runs. Defaults to true.
-   * Turn off to compare against the plain tool loop.
+   * Require a validated query plan before any SQL runs. Defaults to false:
+   * on the benchmark the plan added about 0.7 tool calls and ~30% latency per
+   * question without improving accuracy.
    */
   requirePlan?: boolean;
 }
@@ -276,7 +277,7 @@ export class Agent {
   }
 
   private get planRequired(): boolean {
-    return this.options.requirePlan !== false;
+    return this.options.requirePlan === true;
   }
 
   private planStats(runtime: AskRuntime): { plan?: PlanStats } {

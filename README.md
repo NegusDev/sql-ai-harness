@@ -185,7 +185,7 @@ Model availability, pricing, quotas, and API behavior are controlled by each pro
 | `SQL_QUERY_TIMEOUT_MS` | Per-query timeout (ms) | `10000` |
 | `SQL_MAX_RESULT_BYTES` | Max result payload size (bytes) | `1048576` |
 | `AGENT_MAX_STEPS` | Max agent loop steps | `8` |
-| `AGENT_QUERY_PLAN` | `on` requires a schema-checked query plan before SQL runs; `off` skips it | `on` |
+| `AGENT_QUERY_PLAN` | `on` requires a schema-checked query plan before SQL runs; `off` skips it | `off` |
 | `SCHEMA_CACHE_TTL_MS` | Schema cache lifetime (ms) | `300000` (5 min) |
 
 Start from the `.env.example` values and tune against your own database. Higher limits increase both resource use and the amount of data exposed to the model.
@@ -298,6 +298,12 @@ pnpm eval -- --tag local-check
 ```
 
 See [`evals/README.md`](./evals/README.md) for dataset setup and scoring. When comparing runs, keep the provider, model, database snapshot, configuration, and dataset consistent. A passing benchmark supports the cases tested; it is not a guarantee of general correctness.
+
+**Latest result (v0.1.8):** on the 40-case internal benchmark (synthetic forex database, `gemini-3.5-flash-lite`, 3 runs) the agent passed 39 of 40 cases in every run (97.5%), including 10 of 10 safety and off-topic refusal checks. The one consistent failure is a known reference-answer error in the benchmark, not an agent error. The cases are mostly simple lookups and joins, so treat this as a regression check, not a measure of accuracy on your own database.
+
+### Query plan (optional)
+
+With `AGENT_QUERY_PLAN=on` the agent must submit a structured plan (tables, columns, joins, filters) that is checked against your real schema before any SQL runs, and the SQL may only read the planned tables. In the same benchmark the plan added about 0.7 tool calls and roughly 30% median latency per question without improving accuracy, so it is off by default. Turn it on if you want the agent's assumptions visible in `--mode debug`, or to compare against your own workload.
 
 ## Development
 

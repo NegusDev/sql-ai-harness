@@ -1,6 +1,6 @@
 {
   "name": "sql-ai-harness",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
@@ -19,6 +19,7 @@
   "files": [
     "dist/",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "sql-ai.example.md"
   ],
