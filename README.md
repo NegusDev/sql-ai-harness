@@ -1,20 +1,22 @@
-# SQL AI Harness
+# dbask
 
 **Open-source, privacy-first, self-hostable Text-to-SQL for your existing relational database.**
 
-Ask questions in plain language about a MySQL, MariaDB, or PostgreSQL database you already have. SQL AI Harness discovers the schema, gives an AI agent tools to inspect and query it, enforces execution limits, and returns an answer. No new schema, no model trained for your app, no hosted service.
+Ask questions in plain language about a MySQL, MariaDB, or PostgreSQL database you already have. dbask discovers the schema, gives an AI agent tools to inspect and query it, enforces execution limits, and returns an answer. No new schema, no model trained for your app, no hosted service.
 
 Bring your own model. Run it yourself.
 
-[![npm](https://img.shields.io/npm/v/sql-ai-harness.svg)](https://www.npmjs.com/package/sql-ai-harness)
-[![node](https://img.shields.io/node/v/sql-ai-harness.svg)](https://nodejs.org)
-[![license](https://img.shields.io/npm/l/sql-ai-harness.svg)](./LICENSE)
+> dbask was previously published as `sql-ai-harness`. The old command still works as an alias, and the SDK API is unchanged apart from the package name.
 
-> **Development status:** SQL AI Harness is under active development (pre-1.0, so the API may change between minor versions). Validate it against your own schema and workload before relying on it, especially for consequential decisions.
+[![npm](https://img.shields.io/npm/v/dbask.svg)](https://www.npmjs.com/package/dbask)
+[![node](https://img.shields.io/node/v/dbask.svg)](https://nodejs.org)
+[![license](https://img.shields.io/npm/l/dbask.svg)](./LICENSE)
+
+> **Development status:** dbask is under active development (pre-1.0, so the API may change between minor versions). Validate it against your own schema and workload before relying on it, especially for consequential decisions.
 
 ## Contents
 
-- [Why SQL AI Harness](#why-sql-ai-harness)
+- [Why dbask](#why-dbask)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Quickstart](#quickstart)
@@ -32,9 +34,9 @@ Bring your own model. Run it yourself.
 - [Contributing](#contributing)
 - [License](#license)
 
-## Why SQL AI Harness
+## Why dbask
 
-Most Text-to-SQL tools are either a hosted service that sees your schema and data, or tightly coupled to one model and one vendor. SQL AI Harness is a harness you run yourself, against a database you already own, with a model you choose.
+Most Text-to-SQL tools are either a hosted service that sees your schema and data, or tightly coupled to one model and one vendor. dbask is a harness you run yourself, against a database you already own, with a model you choose.
 
 It is a reusable layer between an AI provider and an existing relational database. It is not a new application with its own schema.
 
@@ -65,7 +67,7 @@ It is a reusable layer between an AI provider and an existing relational databas
 Run the setup wizard in the directory where you want the configuration stored:
 
 ```bash
-npx sql-ai-harness init
+npx dbask init
 ```
 
 The wizard asks for:
@@ -80,7 +82,7 @@ It tests the **database connection** and lists tables before saving. It does **n
 If `.env` already exists, the wizard asks before updating harness settings and preserves unrelated entries. Skip the confirmation with `--force`:
 
 ```bash
-npx sql-ai-harness init --force
+npx dbask init --force
 ```
 
 Keep `.env` private and out of version control. The wizard writes it with restrictive permissions where supported.
@@ -88,7 +90,7 @@ Keep `.env` private and out of version control. The wizard writes it with restri
 ### 2. Check your setup
 
 ```bash
-npx sql-ai-harness validate
+npx dbask validate
 ```
 
 `validate` checks your configuration, connects to the database, confirms the account can see tables and foreign keys, and sends **one tiny request** to your AI provider to confirm the key and model work. It never reads table data and never runs model-written SQL. Each line reports `[ok]`, `[warn]`, `[fail]` or `[skip]`, and the command exits with a non-zero status if anything fails, so it also works in scripts and CI.
@@ -106,19 +108,19 @@ Use `--skip-provider` to check only the configuration and database, without cont
 ### 3. Ask a question
 
 ```bash
-npx sql-ai-harness ask "How many students are enrolled?"
+npx dbask ask "How many students are enrolled?"
 ```
 
 ### 4. Install globally (optional)
 
 ```bash
-npm install --global sql-ai-harness
-sql-ai-harness ask "List active users"
+npm install --global dbask
+dbask ask "List active users"
 ```
 
 ## Data handling
 
-SQL AI Harness itself does not phone home. No telemetry, no crash reporting, no license check on startup, no cloud dependency. The harness runs on your machine (or your own server) and talks to your database directly.
+dbask itself does not phone home. No telemetry, no crash reporting, no license check on startup, no cloud dependency. The harness runs on your machine (or your own server) and talks to your database directly.
 
 What does leave your machine is what your chosen AI provider receives. Depending on the question and tool flow, that can include schema metadata, question text, generated SQL, and query results. Review that provider's retention, training, and residency terms before using sensitive data.
 
@@ -129,9 +131,9 @@ To reduce exposure, see [Safety and data handling](#safety-and-data-handling): r
 ## Usage
 
 ```bash
-sql-ai-harness ask "How much revenue last month?"                      # natural (default)
-sql-ai-harness ask --mode technical "How much revenue last month?"     # answer + SQL
-sql-ai-harness ask --mode debug "How much revenue last month?"         # answer + tool traces
+dbask ask "How much revenue last month?"                      # natural (default)
+dbask ask --mode technical "How much revenue last month?"     # answer + SQL
+dbask ask --mode debug "How much revenue last month?"         # answer + tool traces
 ```
 
 Shorthand flags `--technical` and `--debug` also work.
@@ -161,7 +163,7 @@ Configuration is loaded from `.env` in the current working directory plus the pr
 | `OLLAMA_BASE_URL` | Ollama endpoint | `http://localhost:11434/v1` |
 | `DEEPSEEK_API_KEY` | DeepSeek credential | n/a |
 | `AI_SITE_URL` | Optional OpenRouter app URL metadata | n/a |
-| `AI_SITE_NAME` | Optional OpenRouter app name metadata | `SQL AI Harness` |
+| `AI_SITE_NAME` | Optional OpenRouter app name metadata | `dbask` |
 
 Model availability, pricing, quotas, and API behavior are controlled by each provider and can change independently of this project.
 
@@ -213,7 +215,7 @@ Keep the rules accurate and current. Incorrect or ambiguous context can produce 
 
 ## TypeScript SDK
 
-The package exports its public SDK from `sql-ai-harness`. Import from the package entry point; internal `src/` paths are not part of the public API.
+The package exports its public SDK from `dbask`. Import from the package entry point; internal `src/` paths are not part of the public API.
 
 ```ts
 import {
@@ -221,7 +223,7 @@ import {
   createAiProvider,
   createDatabaseAdapter,
   loadConfig,
-} from "sql-ai-harness";
+} from "dbask";
 
 const config = loadConfig();
 
@@ -264,7 +266,7 @@ The agent requires **successful global foreign-key discovery before executing SQ
 
 ## Safety and data handling
 
-SQL AI Harness applies safeguards and execution limits, but **it is not a complete security boundary by itself**. Recommended practices:
+dbask applies safeguards and execution limits, but **it is not a complete security boundary by itself**. Recommended practices:
 
 1. **Use a dedicated read-only database account** with only the schema-inspection and read permissions required. Don't rely solely on the model or the application validator to prevent writes.
 2. **Restrict database visibility.** Avoid granting access to unrelated databases, sensitive tables, or columns.
@@ -308,8 +310,8 @@ With `AGENT_QUERY_PLAN=on` the agent must submit a structured plan (tables, colu
 ## Development
 
 ```bash
-git clone https://github.com/NegusDev/sql-ai-harness.git
-cd sql-ai-harness
+git clone https://github.com/NegusDev/dbask.git
+cd dbask
 pnpm install
 cp .env.example .env
 ```
@@ -371,7 +373,7 @@ tests/            Automated tests
 - Verify `AI_MODEL` is the exact model ID the provider expects.
 - Check that the API key is active and has quota and access to the model.
 - For Ollama, verify the endpoint is reachable and the model is installed.
-- Run `sql-ai-harness validate`. It sends one tiny request to the provider and reports whether the key, model, and network path work. (`init` only tests the database.)
+- Run `dbask validate`. It sends one tiny request to the provider and reports whether the key, model, and network path work. (`init` only tests the database.)
 
 ### The answer is incorrect or incomplete
 
@@ -390,7 +392,7 @@ tests/            Automated tests
 
 ## Contributing
 
-Issues and pull requests are welcome at [github.com/NegusDev/sql-ai-harness](https://github.com/NegusDev/sql-ai-harness).
+Issues and pull requests are welcome at [github.com/NegusDev/dbask](https://github.com/NegusDev/dbask).
 
 Before opening a PR, run the project checks and confirm that changes to the agent, tools, or prompts don't regress the benchmark:
 
@@ -413,8 +415,8 @@ Released under the [ISC License](./LICENSE).
 
 ## Links
 
-- [Source](https://github.com/NegusDev/sql-ai-harness)
-- [npm](https://www.npmjs.com/package/sql-ai-harness)
-- [Issues](https://github.com/NegusDev/sql-ai-harness/issues)
+- [Source](https://github.com/NegusDev/dbask)
+- [npm](https://www.npmjs.com/package/dbask)
+- [Issues](https://github.com/NegusDev/dbask/issues)
 - [Evaluation guide](./evals/README.md)
 - [Business context template](./sql-ai.example.md)

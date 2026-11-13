@@ -126,7 +126,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       user: config.user,
       password: config.password,
       max: config.connectionLimit ?? 5,
-      application_name: 'sql-ai-harness',
+      application_name: 'dbask',
       connectionTimeoutMillis: 10_000,
       idleTimeoutMillis: 30_000,
       types: resultTypes,

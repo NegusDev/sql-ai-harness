@@ -9,7 +9,7 @@ import {
 } from '../evals/runners/run-benchmark.js';
 
 const queryEvent = (sql: string, rows: unknown[]): ToolEvent => ({
-  source: 'sql-ai-harness',
+  source: 'dbask',
   type: 'tool-end',
   name: 'execute_query',
   input: { sql },

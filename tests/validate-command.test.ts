@@ -87,7 +87,7 @@ describe('runValidationChecks', () => {
 
     expect(status(results, 'Configuration')).toBe('fail');
     expect(results[0]?.detail).toContain('AI_MODEL');
-    expect(results[0]?.detail).toContain('sql-ai-harness init');
+    expect(results[0]?.detail).toContain('dbask init');
     expect(status(results, 'Database connection')).toBe('skip');
     expect(status(results, 'AI provider')).toBe('skip');
   });

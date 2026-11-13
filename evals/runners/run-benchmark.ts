@@ -125,7 +125,7 @@ export function extractToolEvents(stderr: string): ToolEvent[] {
       const event = asRecord(value) as ToolEvent | null;
 
       if (
-        event?.source === 'sql-ai-harness' &&
+        event?.source === 'dbask' &&
         typeof event.type === 'string' &&
         typeof event.name === 'string'
       ) {
@@ -1097,7 +1097,7 @@ function markdownReport(
   );
 
   const lines = [
-    `# SQL AI Harness Benchmark: ${tag}`,
+    `# dbask Benchmark: ${tag}`,
     '',
     `- Dataset: \`${datasetName}\``,
     `- Model: ${process.env.AI_PROVIDER ?? 'openrouter'} / ${process.env.AI_MODEL ?? 'unknown'}`,
@@ -1331,7 +1331,7 @@ export function repeatSummary(
     `| ${label} | ${runs.map((r) => f(r)).join(' | ')} |`;
 
   const lines = [
-    `# SQL AI Harness Benchmark: ${tag} (${runs.length} runs)`,
+    `# dbask Benchmark: ${tag} (${runs.length} runs)`,
     '',
     `- Dataset: \`${datasetName}\``,
     `- Model: ${process.env.AI_PROVIDER ?? 'openrouter'} / ${process.env.AI_MODEL ?? 'unknown'}`,

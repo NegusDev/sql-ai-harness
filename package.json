@@ -1,5 +1,5 @@
 {
-  "name": "sql-ai-harness",
+  "name": "dbask",
   "version": "0.1.8",
   "private": false,
   "type": "module",
@@ -14,6 +14,7 @@
     "./package.json": "./package.json"
   },
   "bin": {
+    "dbask": "./dist/cli.js",
     "sql-ai-harness": "./dist/cli.js"
   },
   "files": [
@@ -61,11 +62,11 @@
   "description": "Open-source, self-hostable Text-to-SQL harness: ask questions about your existing MySQL, MariaDB, or PostgreSQL database in plain language, with a CLI and TypeScript SDK. Bring your own model.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/NegusDev/sql-ai-harness.git"
+    "url": "https://github.com/NegusDev/dbask.git"
   },
-  "homepage": "https://github.com/NegusDev/sql-ai-harness#readme",
+  "homepage": "https://github.com/NegusDev/dbask#readme",
   "bugs": {
-    "url": "https://github.com/NegusDev/sql-ai-harness/issues"
+    "url": "https://github.com/NegusDev/dbask/issues"
   },
   "dependencies": {
     "@ai-sdk/cerebras": "^3.0.87",

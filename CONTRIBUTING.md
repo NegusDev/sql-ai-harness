@@ -1,4 +1,4 @@
-# Contributing to SQL AI Harness
+# Contributing to dbask
 
 Thanks for helping. This project is a small, safety-focused layer between an AI model and a read-only relational database, so changes are judged on correctness and safety first, features second.
 
@@ -14,14 +14,14 @@ Thanks for helping. This project is a small, safety-focused layer between an AI 
 Requirements: Node.js 22 or newer and [pnpm](https://pnpm.io).
 
 ```bash
-git clone https://github.com/NegusDev/sql-ai-harness.git
-cd sql-ai-harness
+git clone https://github.com/NegusDev/dbask.git
+cd dbask
 pnpm install
 pnpm typecheck
 pnpm test
 ```
 
-Run the CLI from source with `pnpm dev ask "your question"` (use `--mode debug` to see tool calls). You need a `.env` for that; `sql-ai-harness init` or `.env.example` shows the variables. Unit tests need neither a database nor an API key.
+Run the CLI from source with `pnpm dev ask "your question"` (use `--mode debug` to see tool calls). You need a `.env` for that; `dbask init` or `.env.example` shows the variables. Unit tests need neither a database nor an API key.
 
 ## Branches and pull requests
 

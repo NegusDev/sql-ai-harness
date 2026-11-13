@@ -17,9 +17,9 @@ import { createStyle, terminalWidth } from './ui/style.js';
 function printUsage(): void {
   const s = createStyle(process.stdout);
   console.log(`${s.bold('Usage:')}
-  sql-ai-harness init [--force]
-  sql-ai-harness validate [--skip-provider]
-  sql-ai-harness ask [--mode natural|technical|debug] "your question"
+  dbask init [--force]
+  dbask validate [--skip-provider]
+  dbask ask [--mode natural|technical|debug] "your question"
 
 ${s.cyan('validate')} checks your configuration, database connection, foreign keys, and sends
 one tiny request to the AI provider (use --skip-provider to avoid it). It never
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
   if (errStyle.rich) {
     console.error(
       errStyle.dim(
-        `sql-ai-harness · ${config.ai.provider}/${config.ai.model} · ${config.database.driver}:${config.database.name || 'unnamed'}`,
+        `dbask · ${config.ai.provider}/${config.ai.model} · ${config.database.driver}:${config.database.name || 'unnamed'}`,
       ),
     );
   }

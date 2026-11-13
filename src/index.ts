@@ -1,5 +1,5 @@
 /**
- * Public SDK entry point for SQL AI Harness.
+ * Public SDK entry point for dbask.
  *
  * Keep this file as the supported import surface. Consumers should not need to
  * import implementation files from internal src/ paths.

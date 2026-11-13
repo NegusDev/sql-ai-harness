@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com), and the project uses [Semantic Versioning](https://semver.org) (0.x: minor versions may change behavior).
 
+## [Unreleased]
+
+### Changed
+- **Renamed from `sql-ai-harness` to `dbask`.** The npm package is now `dbask` and the command is `dbask "your question"`. The `sql-ai-harness` command stays as an alias for now. Environment variables, the `sql-ai.md` context file and the SDK API are unchanged; update imports from `"sql-ai-harness"` to `"dbask"`. The structured debug events now use `source: "dbask"`.
+
 ## [0.1.8] - 2026-11-13
 
 ### Added
