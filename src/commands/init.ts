@@ -233,7 +233,7 @@ export async function runInit(args: string[] = []): Promise<void> {
     }
     await saveEnvFile(envPath, values);
     stdout.write(`\n✓ Configuration saved to ${envPath}\n`);
-    stdout.write('  Keep .env out of version control; it contains credentials.\n\nSetup complete. Try:\n  dbask ask "How many records are in the database?"\n\n');
+    stdout.write('  Keep .env out of version control; it contains credentials.\n\nSetup complete. Try:\n  dbask "How many records are in the database?"\n\n');
   } finally {
     rl.close();
   }

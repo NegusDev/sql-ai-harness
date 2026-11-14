@@ -232,7 +232,7 @@ export function formatValidationReport(results: CheckResult[], style: Style = pl
   } else if (warned > 0) {
     lines.push(style.yellow('Ready to use, with warnings above.'));
   } else {
-    lines.push(`${style.green('Everything looks good.')} Try: dbask ask "How many rows are in my largest table?"`);
+    lines.push(`${style.green('Everything looks good.')} Try: dbask "How many rows are in my largest table?"`);
   }
 
   return lines.join('\n');

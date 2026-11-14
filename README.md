@@ -6,11 +6,11 @@ Ask questions in plain language about a MySQL, MariaDB, or PostgreSQL database y
 
 Bring your own model. Run it yourself.
 
-> dbask was previously published as `sql-ai-harness`. The old command still works as an alias, and the SDK API is unchanged apart from the package name.
+> dbask was previously published as `sql-ai-harness`. Install it as `@negusdev/dbask`; the command is `dbask`. The old `sql-ai-harness` command still works as an alias, and the SDK API is unchanged apart from the package name.
 
-[![npm](https://img.shields.io/npm/v/dbask.svg)](https://www.npmjs.com/package/dbask)
-[![node](https://img.shields.io/node/v/dbask.svg)](https://nodejs.org)
-[![license](https://img.shields.io/npm/l/dbask.svg)](./LICENSE)
+[![npm](https://img.shields.io/npm/v/@negusdev/dbask.svg)](https://www.npmjs.com/package/@negusdev/dbask)
+[![node](https://img.shields.io/node/v/@negusdev/dbask.svg)](https://nodejs.org)
+[![license](https://img.shields.io/npm/l/@negusdev/dbask.svg)](./LICENSE)
 
 > **Development status:** dbask is under active development (pre-1.0, so the API may change between minor versions). Validate it against your own schema and workload before relying on it, especially for consequential decisions.
 
@@ -67,7 +67,7 @@ It is a reusable layer between an AI provider and an existing relational databas
 Run the setup wizard in the directory where you want the configuration stored:
 
 ```bash
-npx dbask init
+npx @negusdev/dbask init
 ```
 
 The wizard asks for:
@@ -82,7 +82,7 @@ It tests the **database connection** and lists tables before saving. It does **n
 If `.env` already exists, the wizard asks before updating harness settings and preserves unrelated entries. Skip the confirmation with `--force`:
 
 ```bash
-npx dbask init --force
+npx @negusdev/dbask init --force
 ```
 
 Keep `.env` private and out of version control. The wizard writes it with restrictive permissions where supported.
@@ -90,7 +90,7 @@ Keep `.env` private and out of version control. The wizard writes it with restri
 ### 2. Check your setup
 
 ```bash
-npx dbask validate
+npx @negusdev/dbask validate
 ```
 
 `validate` checks your configuration, connects to the database, confirms the account can see tables and foreign keys, and sends **one tiny request** to your AI provider to confirm the key and model work. It never reads table data and never runs model-written SQL. Each line reports `[ok]`, `[warn]`, `[fail]` or `[skip]`, and the command exits with a non-zero status if anything fails, so it also works in scripts and CI.
@@ -108,14 +108,14 @@ Use `--skip-provider` to check only the configuration and database, without cont
 ### 3. Ask a question
 
 ```bash
-npx dbask ask "How many students are enrolled?"
+npx @negusdev/dbask "How many students are enrolled?"
 ```
 
 ### 4. Install globally (optional)
 
 ```bash
-npm install --global dbask
-dbask ask "List active users"
+npm install --global @negusdev/dbask
+dbask "List active users"
 ```
 
 ## Data handling
@@ -131,9 +131,10 @@ To reduce exposure, see [Safety and data handling](#safety-and-data-handling): r
 ## Usage
 
 ```bash
-dbask ask "How much revenue last month?"                      # natural (default)
-dbask ask --mode technical "How much revenue last month?"     # answer + SQL
-dbask ask --mode debug "How much revenue last month?"         # answer + tool traces
+dbask "How much revenue last month?"                      # natural (default)
+dbask --mode technical "How much revenue last month?"     # answer + SQL
+dbask --mode debug "How much revenue last month?"         # answer + tool traces
+# `dbask ask "…"` is the same as `dbask "…"`; use it for a one-word question or inside older scripts.
 ```
 
 Shorthand flags `--technical` and `--debug` also work.
@@ -215,7 +216,7 @@ Keep the rules accurate and current. Incorrect or ambiguous context can produce 
 
 ## TypeScript SDK
 
-The package exports its public SDK from `dbask`. Import from the package entry point; internal `src/` paths are not part of the public API.
+The package exports its public SDK from `@negusdev/dbask`. Import from the package entry point; internal `src/` paths are not part of the public API.
 
 ```ts
 import {
@@ -223,7 +224,7 @@ import {
   createAiProvider,
   createDatabaseAdapter,
   loadConfig,
-} from "dbask";
+} from "@negusdev/dbask";
 
 const config = loadConfig();
 
@@ -416,7 +417,7 @@ Released under the [ISC License](./LICENSE).
 ## Links
 
 - [Source](https://github.com/NegusDev/dbask)
-- [npm](https://www.npmjs.com/package/dbask)
+- [npm](https://www.npmjs.com/package/@negusdev/dbask)
 - [Issues](https://github.com/NegusDev/dbask/issues)
 - [Evaluation guide](./evals/README.md)
 - [Business context template](./sql-ai.example.md)
