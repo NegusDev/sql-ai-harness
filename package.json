@@ -14,8 +14,7 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "dbask": "./dist/cli.js",
-    "sql-ai-harness": "./dist/cli.js"
+    "dbask": "./dist/cli.js"
   },
   "files": [
     "dist/",

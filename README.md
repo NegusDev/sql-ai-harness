@@ -6,7 +6,7 @@ Ask questions in plain language about a MySQL, MariaDB, or PostgreSQL database y
 
 Bring your own model. Run it yourself.
 
-> dbask was previously published as `sql-ai-harness`. Install it as `@negusdev/dbask`; the command is `dbask`. The old `sql-ai-harness` command still works as an alias, and the SDK API is unchanged apart from the package name.
+> dbask was previously published as `sql-ai-harness`. Install it as `@negusdev/dbask`; the command is `dbask`. If you have the old package installed globally, remove it first (`npm uninstall -g sql-ai-harness`) so the two don't conflict. The SDK API is unchanged apart from the package name.
 
 [![npm](https://img.shields.io/npm/v/@negusdev/dbask.svg)](https://www.npmjs.com/package/@negusdev/dbask)
 [![node](https://img.shields.io/node/v/@negusdev/dbask.svg)](https://nodejs.org)

@@ -5,7 +5,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Changed
-- **Renamed from `sql-ai-harness` to `dbask`.** The npm package is now `@negusdev/dbask` (the unscoped name `dbask` was blocked by npm's name-similarity check) and the command is `dbask`. The `sql-ai-harness` command stays as an alias for now. You can now ask without the subcommand: `dbask "who owes us money?"` (`dbask ask "…"` still works). Mistyped options and one-word mistyped commands now print an error instead of being sent to the model, and `dbask --version` and `--help` were added. Environment variables, the `sql-ai.md` context file and the SDK API are unchanged; update imports from `"sql-ai-harness"` to `"dbask"`. The structured debug events now use `source: "dbask"`.
+- **Renamed from `sql-ai-harness` to `dbask`.** The npm package is now `@negusdev/dbask` (the unscoped name `dbask` was blocked by npm's name-similarity check) and the command is `dbask`. The `sql-ai-harness` command is **not** kept as an alias: it would collide with the old package's file when installing over it (`EEXIST`). If you have the old package installed globally, run `npm uninstall -g sql-ai-harness` before `npm i -g @negusdev/dbask`. You can now ask without the subcommand: `dbask "who owes us money?"` (`dbask ask "…"` still works). Mistyped options and one-word mistyped commands now print an error instead of being sent to the model, and `dbask --version` and `--help` were added. Environment variables, the `sql-ai.md` context file and the SDK API are unchanged; update imports from `"sql-ai-harness"` to `"@negusdev/dbask"`. The structured debug events now use `source: "dbask"`.
 
 ## [0.1.8] - 2026-11-13
 
