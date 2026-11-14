@@ -145,7 +145,7 @@ export async function runInit(args: string[] = []): Promise<void> {
     CEREBRAS_API_KEY: '',
     OLLAMA_BASE_URL: 'http://localhost:11434/v1',
     DEEPSEEK_API_KEY: '',
-    AI_SITE_NAME: 'SQL AI Harness',
+    AI_SITE_NAME: 'dbask',
     SQL_MAX_ROWS: '500',
     SQL_QUERY_TIMEOUT_MS: '10000',
     SQL_MAX_RESULT_BYTES: '1048576',
@@ -154,7 +154,7 @@ export async function runInit(args: string[] = []): Promise<void> {
   };
 
   try {
-    stdout.write('\nSQL AI Harness — Setup\n\nDatabase\n');
+    stdout.write('\ndbask — Setup\n\nDatabase\n');
     values.DB_DRIVER = await askChoice(rl, 'Database type', [
       { value: 'mysql', label: 'MySQL / MariaDB' },
       { value: 'postgres', label: 'PostgreSQL' },
@@ -233,7 +233,7 @@ export async function runInit(args: string[] = []): Promise<void> {
     }
     await saveEnvFile(envPath, values);
     stdout.write(`\n✓ Configuration saved to ${envPath}\n`);
-    stdout.write('  Keep .env out of version control; it contains credentials.\n\nSetup complete. Try:\n  sql-ai-harness ask "How many records are in the database?"\n\n');
+    stdout.write('  Keep .env out of version control; it contains credentials.\n\nSetup complete. Try:\n  dbask "How many records are in the database?"\n\n');
   } finally {
     rl.close();
   }

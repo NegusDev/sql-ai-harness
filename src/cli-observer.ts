@@ -45,7 +45,7 @@ function emitStructuredEvent(event: AgentToolEvent): void {
   try {
     const json = JSON.stringify(
       {
-        source: 'sql-ai-harness',
+        source: 'dbask',
         ...event,
       },
       (_key, value: unknown) =>
@@ -59,7 +59,7 @@ function emitStructuredEvent(event: AgentToolEvent): void {
   } catch (error) {
     console.error(
       JSON.stringify({
-        source: 'sql-ai-harness',
+        source: 'dbask',
         type: 'trace-serialization-error',
         message:
           error instanceof Error ? error.message : String(error),

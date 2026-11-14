@@ -89,7 +89,7 @@ export async function runValidationChecks(
     add(
       'Configuration',
       'fail',
-      `${describeError(error)}. Run "sql-ai-harness init" to create a .env, or set these variables in your environment.`,
+      `${describeError(error)}. Run "dbask init" to create a .env, or set these variables in your environment.`,
     );
   }
 
@@ -232,7 +232,7 @@ export function formatValidationReport(results: CheckResult[], style: Style = pl
   } else if (warned > 0) {
     lines.push(style.yellow('Ready to use, with warnings above.'));
   } else {
-    lines.push(`${style.green('Everything looks good.')} Try: sql-ai-harness ask "How many rows are in my largest table?"`);
+    lines.push(`${style.green('Everything looks good.')} Try: dbask "How many rows are in my largest table?"`);
   }
 
   return lines.join('\n');

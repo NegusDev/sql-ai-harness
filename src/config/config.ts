@@ -30,7 +30,7 @@ const envSchema = z.object({
     (value) => value === '' ? undefined : value,
     z.string().url().optional(),
   ),
-  AI_SITE_NAME: z.string().default('SQL AI Harness'),
+  AI_SITE_NAME: z.string().default('dbask'),
 
   DB_DRIVER: z.enum(['mysql', 'postgres', 'sqlite']).default('mysql'),
   DB_HOST: z.string().default('127.0.0.1'),

@@ -6,7 +6,8 @@ import { createDatabaseAdapter } from './database/index.js';
 import { createAiProvider } from './ai/factory.js';
 import { CliAgentObserver } from './cli-observer.js';
 import { SchemaCache } from './schema/cache.js';
-import type { ResponseMode } from './core/agent/agent.js';
+import { createRequire } from 'node:module';
+import { parseCli } from './cli-args.js';
 import { loadDatabaseContext } from './context/db-context.js';
 import { runInit } from './commands/init.js';
 import { runValidate } from './commands/validate.js';
@@ -17,9 +18,12 @@ import { createStyle, terminalWidth } from './ui/style.js';
 function printUsage(): void {
   const s = createStyle(process.stdout);
   console.log(`${s.bold('Usage:')}
-  sql-ai-harness init [--force]
-  sql-ai-harness validate [--skip-provider]
-  sql-ai-harness ask [--mode natural|technical|debug] "your question"
+  dbask "your question" [--mode natural|technical|debug]
+  dbask init [--force]
+  dbask validate [--skip-provider]
+  dbask --version
+
+${s.dim('dbask ask "your question" is the same as dbask "your question".')}
 
 ${s.cyan('validate')} checks your configuration, database connection, foreign keys, and sends
 one tiny request to the AI provider (use --skip-provider to avoid it). It never
@@ -31,63 +35,32 @@ ${s.bold('Modes:')}
   ${s.cyan('debug')}      Technical answer plus tool execution diagnostics`);
 }
 
-function parseAskArgs(args: string[]): { mode: ResponseMode; question: string } {
-  let mode: ResponseMode = 'natural';
-  const questionParts: string[] = [];
-
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-
-    if (arg === '--mode') {
-      const value = args[++i];
-      if (value !== 'natural' && value !== 'technical' && value !== 'debug') {
-        throw new Error('Invalid response mode. Use natural, technical, or debug.');
-      }
-      mode = value;
-      continue;
-    }
-
-    if (arg === '--technical') {
-      mode = 'technical';
-      continue;
-    }
-
-    if (arg === '--debug') {
-      mode = 'debug';
-      continue;
-    }
-
-    questionParts.push(arg);
-  }
-
-  return { mode, question: questionParts.join(' ').trim() };
-}
-
 async function main(): Promise<void> {
-  const [command, ...args] = process.argv.slice(2);
+  const command = parseCli(process.argv.slice(2));
 
-  if (command === 'init') {
-    await runInit(args);
-    return;
+  switch (command.kind) {
+    case 'help':
+      printUsage();
+      return;
+    case 'version':
+      console.log(createRequire(import.meta.url)('../package.json').version as string);
+      return;
+    case 'init':
+      await runInit(command.args);
+      return;
+    case 'validate':
+      await runValidate(command.args);
+      return;
+    case 'error':
+      console.error(`${createStyle(process.stderr).red('Error:')} ${command.message}`);
+      if (command.showUsage) console.error('Run dbask --help for usage.');
+      process.exitCode = 1;
+      return;
+    case 'ask':
+      break;
   }
 
-  if (command === 'validate') {
-    await runValidate(args);
-    return;
-  }
-
-  if (command !== 'ask') {
-    printUsage();
-    process.exitCode = command ? 1 : 0;
-    return;
-  }
-
-  const { mode, question } = parseAskArgs(args);
-  if (!question) {
-    console.error(`${createStyle(process.stderr).red('Error:')} a question is required.`);
-    process.exitCode = 1;
-    return;
-  }
+  const { mode, question } = command;
 
   const config = loadConfig();
   const errStyle = createStyle(process.stderr);
@@ -96,7 +69,7 @@ async function main(): Promise<void> {
   if (errStyle.rich) {
     console.error(
       errStyle.dim(
-        `sql-ai-harness · ${config.ai.provider}/${config.ai.model} · ${config.database.driver}:${config.database.name || 'unnamed'}`,
+        `dbask · ${config.ai.provider}/${config.ai.model} · ${config.database.driver}:${config.database.name || 'unnamed'}`,
       ),
     );
   }

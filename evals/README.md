@@ -19,7 +19,7 @@ CREATE USER 'harness_ro'@'localhost' IDENTIFIED BY 'choose-a-password';
 GRANT SELECT ON sql_ai_eval.* TO 'harness_ro'@'localhost';
 ```
 
-Then point `.env` at it (`DB_NAME=sql_ai_eval`, `DB_USER=harness_ro`) and run `sql-ai-harness validate` to confirm the setup.
+Then point `.env` at it (`DB_NAME=sql_ai_eval`, `DB_USER=harness_ro`) and run `dbask validate` to confirm the setup.
 
 The schema and data are synthetic. The structure comes from a forex-management application, but every client name, phone number and email is a fictional placeholder, and no passwords, sessions or cache entries are included. The three seeded users (`demo`, `admin`, `test`) share a placeholder password hash and are not meant for login.
 

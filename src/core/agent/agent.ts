@@ -215,7 +215,7 @@ export class Agent {
     const tools = this.buildTools(runtime);
     const result = await this.provider.generate({
       system: [
-        "You are SQL AI Harness, a database analysis assistant.",
+        "You are dbask, a database analysis assistant.",
         "Answer questions using the connected relational database.",
         "Do not invent schema, columns, rows, or results.",
         "Use schema discovery tools before writing SQL when the schema is not known.",

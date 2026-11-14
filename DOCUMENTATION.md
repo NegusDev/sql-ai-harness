@@ -1,4 +1,4 @@
-# SQL AI Harness
+# dbask
 
 Open-source, privacy-first AI integration layer for existing relational databases.
 
@@ -26,8 +26,8 @@ node dist/cli.js ask "List active users"
 After the package is published, install it globally with:
 
 ```bash
-npm install --global sql-ai-harness
-sql-ai-harness ask "List active users"
+npm install --global @negusdev/dbask
+dbask "List active users"
 ```
 
 The CLI reads configuration from environment variables and a `.env` file in the current working directory. See `.env.example` for the supported options.
@@ -40,7 +40,7 @@ import {
   createDatabaseAdapter,
   createAiProvider,
   loadConfig,
-} from "sql-ai-harness";
+} from "@negusdev/dbask";
 
 const config = loadConfig();
 const database = createDatabaseAdapter(config.database);
@@ -60,7 +60,7 @@ try {
 }
 ```
 
-The SDK also exports `DatabaseAdapter`, `ToolContext`, agent result/options types, provider interfaces, observer types, and `SchemaCache`. Consumers should import from `sql-ai-harness`, not internal `src/` paths. `createAiProvider` supports the providers configured by the current project; the available database adapters in this release are MySQL/MariaDB and PostgreSQL (`createDatabaseAdapter`, `MySqlAdapter`, `PostgresAdapter`).
+The SDK also exports `DatabaseAdapter`, `ToolContext`, agent result/options types, provider interfaces, observer types, and `SchemaCache`. Consumers should import from `@negusdev/dbask`, not internal `src/` paths. `createAiProvider` supports the providers configured by the current project; the available database adapters in this release are MySQL/MariaDB and PostgreSQL (`createDatabaseAdapter`, `MySqlAdapter`, `PostgresAdapter`).
 
 ### Package development checks
 
